@@ -16,12 +16,11 @@ try {
 
     // Bắt buộc bật mã hóa SSL/TLS khi kết nối tới Cloud DB (TiDB Cloud, Aiven...)
     if ($host !== 'localhost' && $host !== '127.0.0.1') {
-        $options[PDO::MYSQL_ATTR_SSL_VERIFY_SERVER_CERT] = false;
-        if (file_exists('/etc/ssl/certs/ca-certificates.crt')) {
-            $options[PDO::MYSQL_ATTR_SSL_CA] = '/etc/ssl/certs/ca-certificates.crt';
-        } else {
-            $options[PDO::MYSQL_ATTR_SSL_CA] = true;
+        $ca_file = __DIR__ . '/isrgrootx1.pem';
+        if (file_exists($ca_file)) {
+            $options[PDO::MYSQL_ATTR_SSL_CA] = $ca_file;
         }
+        $options[PDO::MYSQL_ATTR_SSL_VERIFY_SERVER_CERT] = false;
     }
 
     $pdo = new PDO($dsn, $username, $password, $options);
