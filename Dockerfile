@@ -1,0 +1,21 @@
+FROM php:8.2-apache
+
+# Cài đặt extension pdo_mysql
+RUN docker-php-ext-install pdo pdo_mysql
+
+# Bật mod_rewrite của Apache
+RUN a2enmod rewrite
+
+# Cấu hình Apache nhận cổng dynamic của Render ($PORT mặc định 10000)
+ENV PORT=80
+RUN sed -i "s/80/\${PORT}/g" /etc/apache2/ports.conf /etc/apache2/sites-available/*.conf
+
+# Copy toàn bộ mã nguồn vào thư mục web của Apache
+COPY . /var/www/html/
+
+# Phân quyền thư mục uploads để PHP có thể ghi/upload file
+RUN mkdir -p /var/www/html/uploads \
+    && chown -R www-data:www-data /var/www/html/uploads \
+    && chmod -R 777 /var/www/html/uploads
+
+EXPOSE ${PORT}

@@ -1,0 +1,9 @@
+@font-face {
+    font-family: "Futura PT Medium";
+    src: url("https://db.onlinewebfonts.com/t/3c6b0199ae7b57966132e83c939d77e2.eot");
+    src: url("https://db.onlinewebfonts.com/t/3c6b0199ae7b57966132e83c939d77e2.eot?#iefix")format("embedded-opentype"),
+    url("https://db.onlinewebfonts.com/t/3c6b0199ae7b57966132e83c939d77e2.woff2")format("woff2"),
+    url("https://db.onlinewebfonts.com/t/3c6b0199ae7b57966132e83c939d77e2.woff")format("woff"),
+    url("https://db.onlinewebfonts.com/t/3c6b0199ae7b57966132e83c939d77e2.ttf")format("truetype"),
+    url("https://db.onlinewebfonts.com/t/3c6b0199ae7b57966132e83c939d77e2.svg#Futura PT Medium")format("svg");
+}

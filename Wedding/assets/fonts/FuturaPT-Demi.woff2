@@ -1,0 +1,9 @@
+@font-face {
+    font-family: "Futura PT Demi";
+    src: url("https://db.onlinewebfonts.com/t/5bdac91b83b25ea168302ffbc40909de.eot");
+    src: url("https://db.onlinewebfonts.com/t/5bdac91b83b25ea168302ffbc40909de.eot?#iefix")format("embedded-opentype"),
+    url("https://db.onlinewebfonts.com/t/5bdac91b83b25ea168302ffbc40909de.woff2")format("woff2"),
+    url("https://db.onlinewebfonts.com/t/5bdac91b83b25ea168302ffbc40909de.woff")format("woff"),
+    url("https://db.onlinewebfonts.com/t/5bdac91b83b25ea168302ffbc40909de.ttf")format("truetype"),
+    url("https://db.onlinewebfonts.com/t/5bdac91b83b25ea168302ffbc40909de.svg#Futura PT Demi")format("svg");
+}
