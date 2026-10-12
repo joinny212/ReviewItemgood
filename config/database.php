@@ -1,11 +1,10 @@
 <?php
-// Tự động nhận biến môi trường khi deploy lên Render/Cloud
-// Nếu chạy ở máy local thì fallback về localhost
-$host     = getenv('DB_HOST') ?: 'localhost';
-$port     = getenv('DB_PORT') ?: '3306';
+// Cấu hình kết nối Database TiDB Cloud (có hỗ trợ biến môi trường Render)
+$host     = getenv('DB_HOST') ?: 'gateway01.ap-southeast-1.prod.aws.tidbcloud.com';
+$port     = getenv('DB_PORT') ?: '4000';
 $dbname   = getenv('DB_NAME') ?: 'affiliate_review';
-$username = getenv('DB_USER') ?: 'root';
-$password = getenv('DB_PASS') !== false ? getenv('DB_PASS') : '';
+$username = getenv('DB_USER') ?: '3zQWQun3ZmLaKA4.root';
+$password = (getenv('DB_PASS') !== false && getenv('DB_PASS') !== '') ? getenv('DB_PASS') : 'RkLLk75eipO1kwjx';
 
 try {
     $dsn = "mysql:host=$host;port=$port;dbname=$dbname;charset=utf8mb4";
@@ -14,7 +13,7 @@ try {
         PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
     ];
 
-    // Bắt buộc bật mã hóa SSL/TLS khi kết nối tới Cloud DB (TiDB Cloud, Aiven...)
+    // Bắt buộc cấu hình SSL cho TiDB Cloud
     if ($host !== 'localhost' && $host !== '127.0.0.1') {
         $ca_file = __DIR__ . '/isrgrootx1.pem';
         if (file_exists($ca_file)) {
@@ -25,6 +24,6 @@ try {
 
     $pdo = new PDO($dsn, $username, $password, $options);
 } catch(PDOException $e) {
-    die("Connection failed: " . $e->getMessage());
+    die("Connection failed: " . $e->getMessage() . " (Host: $host, Port: $port, DB: $dbname)");
 }
 ?>
