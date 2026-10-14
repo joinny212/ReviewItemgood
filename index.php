@@ -27,11 +27,14 @@ $latest_reviews = $stmt->fetchAll();
     <!-- Header Navbar -->
     <nav class="navbar navbar-expand-lg navbar-dark bg-dark sticky-top shadow-sm py-2">
         <div class="container">
-            <button class="navbar-toggler border-0 ms-auto" type="button" data-bs-toggle="collapse" data-bs-target="#mainNavbar">
+            <a class="navbar-brand fw-bold fs-4 text-white" href="index.php">
+                <i class="fas fa-fire text-warning me-2"></i>Ninja Review
+            </a>
+            <button class="navbar-toggler border-0" type="button" data-bs-toggle="collapse" data-bs-target="#mainNavbar">
                 <span class="navbar-toggler-icon"></span>
             </button>
             <div class="collapse navbar-collapse" id="mainNavbar">
-                <ul class="navbar-nav me-auto mb-2 mb-lg-0">
+                <ul class="navbar-nav me-auto mb-2 mb-lg-0 ms-lg-4">
                     <li class="nav-item">
                         <a class="nav-link text-white active" href="index.php"><i class="fas fa-home me-1"></i> Trang chủ</a>
                     </li>
