@@ -4,7 +4,7 @@ $host     = getenv('DB_HOST') ?: 'gateway01.ap-southeast-1.prod.aws.tidbcloud.co
 $port     = getenv('DB_PORT') ?: '4000';
 $dbname   = getenv('DB_NAME') ?: 'affiliate_review';
 $username = getenv('DB_USER') ?: '3zQWQun3ZmLaKA4.root';
-$password = (getenv('DB_PASS') !== false && getenv('DB_PASS') !== '') ? getenv('DB_PASS') : 'SVwTHNbwBrt6hQ2s';
+$password = (getenv('DB_PASS') !== false && getenv('DB_PASS') !== '') ? getenv('DB_PASS') : 'ZFcnye8hWfLRyQQ4';
 
 try {
     $dsn = "mysql:host=$host;port=$port;dbname=$dbname;charset=utf8mb4";
