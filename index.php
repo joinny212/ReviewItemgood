@@ -113,7 +113,24 @@ $latest_reviews = $stmt->fetchAll();
                     <div class="product-card h-100">
                         <div class="product-image">
                             <?php if(!empty($product['images'])): ?>
-                                <img class="product-main-image" src="<?php echo htmlspecialchars(productImageUrl($product['images'][0], 'uploads/'), ENT_QUOTES, 'UTF-8'); ?>" alt="<?php echo htmlspecialchars($product['name'], ENT_QUOTES, 'UTF-8'); ?>" onerror="this.hidden=true; this.nextElementSibling.hidden=false;">
+                                <?php
+                                    $productImageUrls = array_map(
+                                        static fn(string $image): string => productImageUrl($image, 'uploads/'),
+                                        $product['images']
+                                    );
+                                    $productImageUrlsJson = json_encode(
+                                        $productImageUrls,
+                                        JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_TAG | JSON_HEX_AMP
+                                    );
+                                ?>
+                                <img
+                                    class="product-main-image"
+                                    src="<?php echo htmlspecialchars($productImageUrls[0], ENT_QUOTES, 'UTF-8'); ?>"
+                                    data-image-urls="<?php echo htmlspecialchars($productImageUrlsJson, ENT_QUOTES, 'UTF-8'); ?>"
+                                    data-image-index="0"
+                                    alt="<?php echo htmlspecialchars($product['name'], ENT_QUOTES, 'UTF-8'); ?>"
+                                    onerror="tryNextProductImage(this)"
+                                >
                                 <div class="product-image-placeholder" hidden>Ảnh không tải được. Kiểm tra URL hoặc tải ảnh lên lại.</div>
                             <?php else: ?>
                                 <div class="product-image-placeholder">Chưa có ảnh</div>
@@ -197,10 +214,34 @@ $latest_reviews = $stmt->fetchAll();
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
     <script>
+        function tryNextProductImage(image) {
+            let imageUrls = [];
+            try {
+                imageUrls = JSON.parse(image.dataset.imageUrls || '[]');
+            } catch (error) {
+                imageUrls = [];
+            }
+
+            const nextIndex = Number(image.dataset.imageIndex || 0) + 1;
+            if (nextIndex < imageUrls.length) {
+                image.dataset.imageIndex = String(nextIndex);
+                image.src = imageUrls[nextIndex];
+                return;
+            }
+
+            image.hidden = true;
+            const placeholder = image.parentElement.querySelector('.product-image-placeholder');
+            if (placeholder) {
+                placeholder.hidden = false;
+            }
+        }
+
         function showProductImage(button) {
             const card = button.closest('.product-card');
             const mainImage = card.querySelector('.product-main-image');
             const placeholder = card.querySelector('.product-image-placeholder');
+            mainImage.dataset.imageUrls = JSON.stringify([button.dataset.imageUrl]);
+            mainImage.dataset.imageIndex = '0';
             mainImage.src = button.dataset.imageUrl;
             mainImage.hidden = false;
             placeholder.hidden = true;
