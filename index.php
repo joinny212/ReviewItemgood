@@ -10,7 +10,7 @@ $featured_products = $stmt->fetchAll();
 
 $product_images = [];
 foreach ($featured_products as &$product) {
-    $product['images'] = $product['image'] ? [$product['image']] : [];
+    $product['images'] = normalizeProductImages([$product['image'] ?? '']);
 }
 unset($product);
 
@@ -26,7 +26,10 @@ if ($featured_product_ids) {
 
         foreach ($featured_products as &$product) {
             if (!empty($product_images[$product['id']])) {
-                $product['images'] = $product_images[$product['id']];
+                $product['images'] = normalizeProductImages(array_merge(
+                    [$product['image'] ?? ''],
+                    $product_images[$product['id']]
+                ));
             }
         }
         unset($product);
@@ -111,7 +114,7 @@ $latest_reviews = $stmt->fetchAll();
                         <div class="product-image">
                             <?php if(!empty($product['images'])): ?>
                                 <img class="product-main-image" src="<?php echo htmlspecialchars(productImageUrl($product['images'][0], 'uploads/'), ENT_QUOTES, 'UTF-8'); ?>" alt="<?php echo htmlspecialchars($product['name'], ENT_QUOTES, 'UTF-8'); ?>" onerror="this.hidden=true; this.nextElementSibling.hidden=false;">
-                                <div class="product-image-placeholder" hidden>Ảnh chưa khả dụng</div>
+                                <div class="product-image-placeholder" hidden>Ảnh không tải được. Kiểm tra URL hoặc tải ảnh lên lại.</div>
                             <?php else: ?>
                                 <div class="product-image-placeholder">Chưa có ảnh</div>
                             <?php endif; ?>

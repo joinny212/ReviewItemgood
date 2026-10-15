@@ -197,10 +197,10 @@ if ($image_gallery_available) {
     }
 }
 foreach ($products as &$product) {
-    if (empty($product_images[$product['id']]) && $product['image']) {
-        $product_images[$product['id']] = [$product['image']];
-    }
-    $product['images'] = $product_images[$product['id']] ?? [];
+    $product['images'] = normalizeProductImages(array_merge(
+        [$product['image'] ?? ''],
+        $product_images[$product['id']] ?? []
+    ));
 }
 unset($product);
 ?>

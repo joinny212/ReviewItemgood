@@ -14,6 +14,29 @@ function productImageUrl(?string $image, string $localPrefix = ''): string
     return $localPrefix . rawurlencode($filename);
 }
 
+function normalizeProductImages(array $images): array
+{
+    $normalized = [];
+    foreach ($images as $image) {
+        if (!is_string($image) || trim($image) === '') {
+            continue;
+        }
+
+        $image = trim($image);
+        if (!in_array($image, $normalized, true)) {
+            $normalized[] = $image;
+        }
+    }
+
+    usort($normalized, static function (string $first, string $second): int {
+        $firstIsRemote = preg_match('#^https?://#i', $first) === 1;
+        $secondIsRemote = preg_match('#^https?://#i', $second) === 1;
+        return $secondIsRemote <=> $firstIsRemote;
+    });
+
+    return $normalized;
+}
+
 function uploadProductImageToCloudinary(string $filePath, string $mimeType): string
 {
     $cloudName = getenv('CLOUDINARY_CLOUD_NAME');

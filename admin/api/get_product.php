@@ -1,6 +1,7 @@
 <?php
 header('Content-Type: application/json');
 require '../../config/database.php';
+require_once '../../config/image_storage.php';
 
 $id = $_GET['id'];
 $stmt = $pdo->prepare("SELECT * FROM products WHERE id = ?");
@@ -19,9 +20,10 @@ if ($product) {
         error_log('Product image gallery schema is missing: ' . $exception->getMessage());
         $product['images'] = [];
     }
-    if (!$product['images'] && $product['image']) {
-        $product['images'] = [$product['image']];
-    }
+    $product['images'] = normalizeProductImages(array_merge(
+        [$product['image'] ?? ''],
+        $product['images']
+    ));
 }
 
 echo json_encode($product ?: []);
