@@ -33,10 +33,12 @@ function uploadProductImageToCloudinary(string $filePath, string $mimeType): str
     }
 
     $timestamp = time();
-    $signature = sha1('timestamp=' . $timestamp . $apiSecret);
+    $folder = 'products';
+    $signature = sha1('folder=' . $folder . '&timestamp=' . $timestamp . $apiSecret);
     $postFields = [
         'file' => new CURLFile($filePath, $mimeType, basename($filePath)),
         'api_key' => $apiKey,
+        'folder' => $folder,
         'timestamp' => $timestamp,
         'signature' => $signature,
     ];
