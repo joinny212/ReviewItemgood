@@ -145,7 +145,7 @@ $latest_reviews = $stmt->fetchAll();
     <!-- Footer -->
     <footer class="footer">
         <div class="container">
-            <p>&copy; 2024 Affiliate Review. Tất cả quyền được bảo lưu.</p>
+            <p>&copy; 2026 Ninja Review. Tất cả quyền được bảo lưu.</p>
         </div>
     </footer>
 

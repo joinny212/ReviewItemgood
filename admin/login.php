@@ -43,6 +43,7 @@ if ($_POST) {
                                 <input type="password" class="form-control" name="password" placeholder="Password" required>
                             </div>
                             <button class="btn btn-primary w-100">Đăng nhập</button>
+                            <a href="../index.php" class="btn btn-outline-secondary w-100 mt-2">Quay lại trang chính</a>
                         </form>
                     </div>
                 </div>
