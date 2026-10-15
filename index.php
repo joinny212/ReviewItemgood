@@ -1,5 +1,6 @@
 <?php
 require 'config/database.php';
+require_once 'config/image_storage.php';
 
 // Lấy sản phẩm nổi bật (6 sản phẩm mới nhất)
 $stmt = $pdo->query("SELECT * FROM products ORDER BY created_at DESC LIMIT 6");
@@ -51,7 +52,7 @@ $latest_reviews = $stmt->fetchAll();
     <title>Review & Affiliate - Đánh giá sản phẩm tốt nhất</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="assets/css/style.css?v=3">
+    <link rel="stylesheet" href="assets/css/style.css?v=4">
 </head>
 <body>
     <!-- Header Navbar -->
@@ -107,7 +108,7 @@ $latest_reviews = $stmt->fetchAll();
                     <div class="product-card h-100">
                         <div class="product-image">
                             <?php if(!empty($product['images'])): ?>
-                                <img class="product-main-image" src="uploads/<?php echo rawurlencode($product['images'][0]); ?>" alt="<?php echo htmlspecialchars($product['name'], ENT_QUOTES, 'UTF-8'); ?>" onerror="this.hidden=true; this.nextElementSibling.hidden=false;">
+                                <img class="product-main-image" src="<?php echo htmlspecialchars(productImageUrl($product['images'][0], 'uploads/'), ENT_QUOTES, 'UTF-8'); ?>" alt="<?php echo htmlspecialchars($product['name'], ENT_QUOTES, 'UTF-8'); ?>" onerror="this.hidden=true; this.nextElementSibling.hidden=false;">
                                 <div class="product-image-placeholder" hidden>Ảnh chưa khả dụng</div>
                             <?php else: ?>
                                 <div class="product-image-placeholder">Chưa có ảnh</div>
@@ -117,8 +118,8 @@ $latest_reviews = $stmt->fetchAll();
                         <div class="product-thumbnails<?php echo count($product['images']) > 1 ? '' : ' product-thumbnails-empty'; ?>" aria-label="Ảnh sản phẩm">
                             <?php if (count($product['images']) > 1): ?>
                                 <?php foreach ($product['images'] as $image): ?>
-                                    <button type="button" class="product-thumbnail" aria-label="Xem ảnh sản phẩm" onclick="showProductImage(this, '<?php echo htmlspecialchars(rawurlencode($image), ENT_QUOTES, 'UTF-8'); ?>')">
-                                        <img src="uploads/<?php echo rawurlencode($image); ?>" alt="" onerror="this.parentElement.hidden=true;">
+                                    <button type="button" class="product-thumbnail" aria-label="Xem ảnh sản phẩm" data-image-url="<?php echo htmlspecialchars(productImageUrl($image, 'uploads/'), ENT_QUOTES, 'UTF-8'); ?>" onclick="showProductImage(this)">
+                                        <img src="<?php echo htmlspecialchars(productImageUrl($image, 'uploads/'), ENT_QUOTES, 'UTF-8'); ?>" alt="" onerror="this.parentElement.hidden=true;">
                                     </button>
                                 <?php endforeach; ?>
                             <?php endif; ?>
@@ -165,7 +166,7 @@ $latest_reviews = $stmt->fetchAll();
                         <div class="card-body p-4">
                             <p class="text-muted mb-3"><?php echo substr($review['content'], 0, 200); ?>...</p>
                             <?php if($review['product_image']): ?>
-                                <img src="uploads/<?php echo $review['product_image']; ?>" 
+                                <img src="<?php echo htmlspecialchars(productImageUrl($review['product_image'], 'uploads/'), ENT_QUOTES, 'UTF-8'); ?>" 
                                      class="img-fluid rounded mb-3" 
                                      style="max-height: 150px; object-fit: cover;"
                                      alt="<?php echo $review['product_name']; ?>">
@@ -191,11 +192,11 @@ $latest_reviews = $stmt->fetchAll();
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
     <script>
-        function showProductImage(button, imageName) {
+        function showProductImage(button) {
             const card = button.closest('.product-card');
             const mainImage = card.querySelector('.product-main-image');
             const placeholder = card.querySelector('.product-image-placeholder');
-            mainImage.src = `uploads/${imageName}`;
+            mainImage.src = button.dataset.imageUrl;
             mainImage.hidden = false;
             placeholder.hidden = true;
         }

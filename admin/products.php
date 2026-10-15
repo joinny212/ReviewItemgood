@@ -5,6 +5,7 @@ if (!isset($_SESSION['admin_id'])) {
     exit;
 }
 require '../config/database.php';
+require_once '../config/image_storage.php';
 
 $image_gallery_available = true;
 $image_gallery_error = null;
@@ -26,7 +27,6 @@ function uploadProductImages(): array
     }
 
     $files = $_FILES['images'];
-    $target_dir = __DIR__ . '/../uploads/';
     $mime_extensions = [
         'image/jpeg' => 'jpg',
         'image/png' => 'png',
@@ -35,36 +35,25 @@ function uploadProductImages(): array
     ];
     $uploaded_images = [];
 
-    try {
-        foreach ($files['error'] as $index => $error) {
-            if ($error === UPLOAD_ERR_NO_FILE) {
-                continue;
-            }
-            if ($error !== UPLOAD_ERR_OK) {
-                throw new RuntimeException('Tải ảnh lên thất bại. Vui lòng thử lại.');
-            }
-
-            $tmp_name = $files['tmp_name'][$index];
-            $mime_type = (new finfo(FILEINFO_MIME_TYPE))->file($tmp_name);
-            if (!isset($mime_extensions[$mime_type])) {
-                throw new RuntimeException('Chỉ chấp nhận ảnh JPEG, PNG, GIF hoặc WebP.');
-            }
-
-            if (!is_dir($target_dir) && !mkdir($target_dir, 0755, true) && !is_dir($target_dir)) {
-                throw new RuntimeException('Không thể tạo thư mục lưu ảnh.');
-            }
-
-            $image_name = bin2hex(random_bytes(16)) . '.' . $mime_extensions[$mime_type];
-            if (!move_uploaded_file($tmp_name, $target_dir . $image_name)) {
-                throw new RuntimeException('Không thể lưu ảnh đã tải lên.');
-            }
-            $uploaded_images[] = $image_name;
+    foreach ($files['error'] as $index => $error) {
+        if ($error === UPLOAD_ERR_NO_FILE) {
+            continue;
         }
-    } catch (RuntimeException $exception) {
-        foreach ($uploaded_images as $image_name) {
-            unlink($target_dir . $image_name);
+        if ($error !== UPLOAD_ERR_OK) {
+            throw new RuntimeException('Tải ảnh lên thất bại. Vui lòng thử lại.');
         }
-        throw $exception;
+
+        $tmp_name = $files['tmp_name'][$index];
+        $mime_type = (new finfo(FILEINFO_MIME_TYPE))->file($tmp_name);
+        if (!isset($mime_extensions[$mime_type])) {
+            throw new RuntimeException('Chỉ chấp nhận ảnh JPEG, PNG, GIF hoặc WebP.');
+        }
+
+        if (!is_uploaded_file($tmp_name)) {
+            throw new RuntimeException('Tệp ảnh tải lên không hợp lệ.');
+        }
+
+        $uploaded_images[] = uploadProductImageToCloudinary($tmp_name, $mime_type);
     }
 
     return $uploaded_images;
@@ -150,7 +139,7 @@ if ($_POST) {
                     }
                 }
 
-                $all_images = array_merge($existing_images, $images);
+                $all_images = array_merge($images, $existing_images);
                 $delete_stmt = $pdo->prepare("DELETE FROM product_images WHERE product_id = ?");
                 $delete_stmt->execute([$id]);
                 $insert_image = $pdo->prepare("INSERT INTO product_images (product_id, image, sort_order) VALUES (?, ?, ?)");
@@ -279,8 +268,8 @@ unset($product);
                                 <td>
                                     <div class="d-flex flex-wrap gap-1">
                                         <?php foreach ($product['images'] as $image): ?>
-                                            <?php if (is_file(__DIR__ . '/../uploads/' . basename($image))): ?>
-                                                <img src="../uploads/<?php echo rawurlencode($image); ?>" width="50" height="50" class="img-thumbnail" style="object-fit: cover;" alt="">
+                                            <?php if (preg_match('#^https?://#i', $image) || is_file(__DIR__ . '/../uploads/' . basename($image))): ?>
+                                                <img src="<?php echo htmlspecialchars(productImageUrl($image, '../uploads/'), ENT_QUOTES, 'UTF-8'); ?>" width="50" height="50" class="img-thumbnail" style="object-fit: cover;" alt="">
                                             <?php else: ?>
                                                 <span class="badge bg-warning text-dark align-self-center">Thiếu file ảnh</span>
                                             <?php endif; ?>
@@ -336,7 +325,9 @@ unset($product);
             preview.innerHTML = '';
             currentProductImages.forEach(image => {
                 const imageElement = document.createElement('img');
-                imageElement.src = `../uploads/${encodeURIComponent(image)}`;
+                imageElement.src = /^https?:\/\//i.test(image)
+                    ? image
+                    : `../uploads/${encodeURIComponent(image)}`;
                 imageElement.width = 80;
                 imageElement.height = 80;
                 imageElement.className = 'img-thumbnail';
