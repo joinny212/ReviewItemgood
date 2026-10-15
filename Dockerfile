@@ -3,6 +3,8 @@ FROM php:8.2-apache
 # Cài đặt chứng chỉ SSL CA và extension pdo_mysql
 RUN apt-get update && apt-get install -y ca-certificates && rm -rf /var/lib/apt/lists/*
 RUN docker-php-ext-install pdo pdo_mysql
+RUN printf "upload_max_filesize=20M\npost_max_size=128M\nmax_file_uploads=30\nmax_input_time=120\n" \
+    > /usr/local/etc/php/conf.d/uploads.ini
 
 # Bật mod_rewrite của Apache
 RUN a2enmod rewrite

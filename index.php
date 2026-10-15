@@ -5,6 +5,25 @@ require 'config/database.php';
 $stmt = $pdo->query("SELECT * FROM products ORDER BY created_at DESC LIMIT 6");
 $featured_products = $stmt->fetchAll();
 
+$featured_product_ids = array_column($featured_products, 'id');
+if ($featured_product_ids) {
+    $placeholders = implode(',', array_fill(0, count($featured_product_ids), '?'));
+    $image_stmt = $pdo->prepare("SELECT product_id, image FROM product_images WHERE product_id IN ($placeholders) ORDER BY sort_order, id");
+    $image_stmt->execute($featured_product_ids);
+    $product_images = [];
+    foreach ($image_stmt->fetchAll() as $product_image) {
+        $product_images[$product_image['product_id']][] = $product_image['image'];
+    }
+
+    foreach ($featured_products as &$product) {
+        $product['images'] = $product_images[$product['id']] ?? [];
+        if (!$product['images'] && $product['image']) {
+            $product['images'] = [$product['image']];
+        }
+    }
+    unset($product);
+}
+
 // Lấy bài review mới nhất (4 bài)
 $stmt = $pdo->query("SELECT r.*, p.name as product_name, p.image as product_image 
                      FROM reviews r 
@@ -76,13 +95,23 @@ $latest_reviews = $stmt->fetchAll();
                 <div class="col-lg-4 col-md-6">
                     <div class="product-card h-100">
                         <div class="product-image">
-                            <?php if($product['image']): ?>
-                                <img src="uploads/<?php echo $product['image']; ?>" alt="<?php echo $product['name']; ?>">
+                            <?php if(!empty($product['images'])): ?>
+                                <img class="product-main-image" src="uploads/<?php echo rawurlencode($product['images'][0]); ?>" alt="<?php echo htmlspecialchars($product['name'], ENT_QUOTES, 'UTF-8'); ?>" onerror="this.hidden=true; this.nextElementSibling.hidden=false;">
+                                <div class="product-image-placeholder" hidden>Ảnh chưa khả dụng</div>
                             <?php else: ?>
-                                <img src="https://via.placeholder.com/300x250/667eea/ffffff?text=No+Image" alt="No Image">
+                                <div class="product-image-placeholder">Chưa có ảnh</div>
                             <?php endif; ?>
                             <div class="product-badge">Hot</div>
                         </div>
+                        <?php if (count($product['images']) > 1): ?>
+                            <div class="product-thumbnails" aria-label="Ảnh sản phẩm">
+                                <?php foreach ($product['images'] as $image): ?>
+                                    <button type="button" class="product-thumbnail" aria-label="Xem ảnh sản phẩm" onclick="showProductImage(this, '<?php echo htmlspecialchars(rawurlencode($image), ENT_QUOTES, 'UTF-8'); ?>')">
+                                        <img src="uploads/<?php echo rawurlencode($image); ?>" alt="" onerror="this.parentElement.hidden=true;">
+                                    </button>
+                                <?php endforeach; ?>
+                            </div>
+                        <?php endif; ?>
                         <div class="product-info">
                             <h3 class="product-title"><?php echo htmlspecialchars($product['name']); ?></h3>
                             <div class="product-price"><?php echo number_format($product['price'], 0, ',', '.'); ?>đ</div>
@@ -151,6 +180,15 @@ $latest_reviews = $stmt->fetchAll();
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
     <script>
+        function showProductImage(button, imageName) {
+            const card = button.closest('.product-card');
+            const mainImage = card.querySelector('.product-main-image');
+            const placeholder = card.querySelector('.product-image-placeholder');
+            mainImage.src = `uploads/${imageName}`;
+            mainImage.hidden = false;
+            placeholder.hidden = true;
+        }
+
         // Smooth scroll
         document.querySelectorAll('a[href^="#"]').forEach(anchor => {
             anchor.addEventListener('click', function (e) {
