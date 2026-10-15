@@ -22,7 +22,7 @@ try {
 
 function uploadProductImages(): array
 {
-    if (!isset($_FILES['images'])) {
+    if (!isset($_FILES['images']) || !is_array($_FILES['images']['name'])) {
         return [];
     }
 
@@ -40,7 +40,15 @@ function uploadProductImages(): array
             continue;
         }
         if ($error !== UPLOAD_ERR_OK) {
-            throw new RuntimeException('Tải ảnh lên thất bại. Vui lòng thử lại.');
+            $upload_errors = [
+                UPLOAD_ERR_INI_SIZE => 'Ảnh vượt giới hạn upload_max_filesize của Render.',
+                UPLOAD_ERR_FORM_SIZE => 'Ảnh vượt giới hạn dung lượng của biểu mẫu.',
+                UPLOAD_ERR_PARTIAL => 'Ảnh chỉ được tải lên một phần. Hãy thử lại.',
+                UPLOAD_ERR_NO_TMP_DIR => 'Máy chủ thiếu thư mục tạm để nhận ảnh.',
+                UPLOAD_ERR_CANT_WRITE => 'Máy chủ không ghi được ảnh tải lên.',
+                UPLOAD_ERR_EXTENSION => 'PHP extension đã chặn việc tải ảnh lên.',
+            ];
+            throw new RuntimeException($upload_errors[$error] ?? 'Tải ảnh lên thất bại. Vui lòng thử lại.');
         }
 
         $tmp_name = $files['tmp_name'][$index];
@@ -253,9 +261,10 @@ unset($product);
                             </div>
                             <div class="mb-3">
                                 <label for="images">Ảnh sản phẩm</label>
-                                <input type="file" class="form-control" id="images" accept="image/jpeg,image/png,image/gif,image/webp" multiple>
-                                <div class="form-text">Chọn tối đa 30 ảnh (tối đa 20 MB mỗi ảnh). Có thể chọn thêm ảnh nhiều lần; khi cập nhật, ảnh mới sẽ được thêm vào bộ ảnh hiện có.</div>
+                                <input type="file" class="form-control" name="images[]" id="images" accept="image/jpeg,image/png,image/gif,image/webp" multiple>
+                                <div class="form-text">Chọn nhiều ảnh trong cùng hộp thoại (giữ Ctrl hoặc Shift khi chọn). Tối đa 30 ảnh, 20 MB mỗi ảnh. Khi cập nhật, ảnh mới được thêm vào bộ ảnh hiện có.</div>
                                 <div id="selectedImageCount" class="small text-muted mt-1">Chưa chọn ảnh mới</div>
+                                <div id="selectedImageNames" class="small text-muted"></div>
                                 <div id="imagePreview" class="d-flex flex-wrap gap-2 mt-2"></div>
                             </div>
                             <button type="submit" id="addProductButton" class="btn btn-primary me-2">Thêm mới</button>
@@ -329,19 +338,6 @@ unset($product);
         let currentProductImages = [];
         let selectedProductFiles = [];
 
-        function addSelectedFilesToForm(files) {
-            if (!files.length) {
-                return;
-            }
-            const fileInput = document.createElement('input');
-            fileInput.type = 'file';
-            fileInput.name = 'images[]';
-            fileInput.multiple = true;
-            fileInput.hidden = true;
-            fileInput.files = files;
-            document.getElementById('productForm').appendChild(fileInput);
-        }
-
         function renderImagePreview() {
             const preview = document.getElementById('imagePreview');
             preview.innerHTML = '';
@@ -375,12 +371,15 @@ unset($product);
             document.getElementById('selectedImageCount').textContent = count
                 ? `Đã chọn ${count} ảnh mới`
                 : 'Chưa chọn ảnh mới';
+            document.getElementById('selectedImageNames').textContent = selectedProductFiles
+                .map(file => file.name)
+                .join(', ');
         }
 
         function editProduct(id) {
             selectedProductFiles = [];
-            document.querySelectorAll('#productForm input[name="images[]"]').forEach(input => input.remove());
             document.getElementById('images').value = '';
+            renderImagePreview();
             fetch(`api/get_product.php?id=${encodeURIComponent(id)}`)
                 .then(response => {
                     if (!response.ok) {
@@ -415,26 +414,45 @@ unset($product);
             document.getElementById('updateProductButton').hidden = true;
             currentProductImages = [];
             selectedProductFiles = [];
-            document.querySelectorAll('#productForm input[name="images[]"]').forEach(input => input.remove());
             renderImagePreview();
         }
 
         document.getElementById('images').addEventListener('change', event => {
             const newFiles = Array.from(event.target.files);
-            if (selectedProductFiles.length + newFiles.length > 30) {
-                window.alert('Bạn chỉ có thể tải tối đa 30 ảnh cho mỗi lần lưu.');
+            if (newFiles.length > 30) {
+                window.alert('Bạn chỉ có thể tải tối đa 30 ảnh cho mỗi lần lưu. Hãy chọn lại ảnh.');
                 event.target.value = '';
+                selectedProductFiles = [];
+                renderImagePreview();
                 return;
             }
             if (newFiles.some(file => file.size > 20 * 1024 * 1024)) {
-                window.alert('Mỗi ảnh phải có dung lượng tối đa 20 MB.');
+                window.alert('Mỗi ảnh phải có dung lượng tối đa 20 MB. Hãy chọn lại ảnh.');
                 event.target.value = '';
+                selectedProductFiles = [];
+                renderImagePreview();
                 return;
             }
-            addSelectedFilesToForm(event.target.files);
-            selectedProductFiles.push(...newFiles);
-            event.target.value = '';
+            selectedProductFiles = newFiles;
             renderImagePreview();
+        });
+
+        document.getElementById('productForm').addEventListener('submit', event => {
+            const action = document.getElementById('product_action').value;
+            const productId = document.getElementById('product_id').value;
+            if (action === 'edit' && !productId) {
+                event.preventDefault();
+                window.alert('Hãy bấm Sửa sản phẩm trước khi cập nhật.');
+                return;
+            }
+            if (action === 'edit' && selectedProductFiles.length === 0) {
+                const continueWithoutImages = window.confirm(
+                    'Bạn chưa chọn ảnh mới. Chỉ lưu thông tin sản phẩm, không tải ảnh lên Cloudinary. Tiếp tục?'
+                );
+                if (!continueWithoutImages) {
+                    event.preventDefault();
+                }
+            }
         });
     </script>
 </body>
