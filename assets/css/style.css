@@ -107,6 +107,11 @@ body {
     position: relative;
 }
 
+.product-card {
+    display: flex;
+    flex-direction: column;
+}
+
 .product-card:hover, .review-card:hover {
     transform: translateY(-10px);
     box-shadow: 0 30px 60px rgba(0,0,0,0.15);
@@ -114,6 +119,7 @@ body {
 
 .product-image {
     height: 250px;
+    flex: 0 0 250px;
     overflow: hidden;
     position: relative;
 }
@@ -140,9 +146,15 @@ body {
 
 .product-thumbnails {
     display: flex;
+    flex: 0 0 76px;
+    min-height: 76px;
     gap: 8px;
     overflow-x: auto;
     padding: 10px 16px 0;
+}
+
+.product-thumbnails-empty {
+    visibility: hidden;
 }
 
 .product-thumbnail {
@@ -180,6 +192,9 @@ body {
 }
 
 .product-info {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
     padding: 25px;
 }
 
@@ -189,6 +204,11 @@ body {
     color: #2d3748;
     margin-bottom: 10px;
     line-height: 1.4;
+    min-height: 4.2em;
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 3;
+    overflow: hidden;
 }
 
 .product-price {
@@ -196,10 +216,12 @@ body {
     font-weight: 700;
     color: #ff6b6b;
     margin-bottom: 15px;
+    min-height: 1.6em;
 }
 
 .affiliate-btn {
     width: 100%;
+    margin-top: auto;
     background: linear-gradient(45deg, #667eea, #764ba2);
     color: white;
     border: none;

@@ -5,23 +5,34 @@ require 'config/database.php';
 $stmt = $pdo->query("SELECT * FROM products ORDER BY created_at DESC LIMIT 6");
 $featured_products = $stmt->fetchAll();
 
+$product_images = [];
+foreach ($featured_products as &$product) {
+    $product['images'] = $product['image'] ? [$product['image']] : [];
+}
+unset($product);
+
 $featured_product_ids = array_column($featured_products, 'id');
 if ($featured_product_ids) {
     $placeholders = implode(',', array_fill(0, count($featured_product_ids), '?'));
-    $image_stmt = $pdo->prepare("SELECT product_id, image FROM product_images WHERE product_id IN ($placeholders) ORDER BY sort_order, id");
-    $image_stmt->execute($featured_product_ids);
-    $product_images = [];
-    foreach ($image_stmt->fetchAll() as $product_image) {
-        $product_images[$product_image['product_id']][] = $product_image['image'];
-    }
-
-    foreach ($featured_products as &$product) {
-        $product['images'] = $product_images[$product['id']] ?? [];
-        if (!$product['images'] && $product['image']) {
-            $product['images'] = [$product['image']];
+    try {
+        $image_stmt = $pdo->prepare("SELECT product_id, image FROM product_images WHERE product_id IN ($placeholders) ORDER BY sort_order, id");
+        $image_stmt->execute($featured_product_ids);
+        foreach ($image_stmt->fetchAll() as $product_image) {
+            $product_images[$product_image['product_id']][] = $product_image['image'];
         }
+
+        foreach ($featured_products as &$product) {
+            if (!empty($product_images[$product['id']])) {
+                $product['images'] = $product_images[$product['id']];
+            }
+        }
+        unset($product);
+    } catch (PDOException $exception) {
+        if (!in_array($exception->getCode(), ['42S02', '42S22'], true)) {
+            throw $exception;
+        }
+        error_log('Product image gallery schema is missing: ' . $exception->getMessage());
     }
-    unset($product);
 }
 
 // Lấy bài review mới nhất (4 bài)
@@ -40,7 +51,7 @@ $latest_reviews = $stmt->fetchAll();
     <title>Review & Affiliate - Đánh giá sản phẩm tốt nhất</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="assets/css/style.css">
+    <link rel="stylesheet" href="assets/css/style.css?v=3">
 </head>
 <body>
     <!-- Header Navbar -->
@@ -103,15 +114,15 @@ $latest_reviews = $stmt->fetchAll();
                             <?php endif; ?>
                             <div class="product-badge">Hot</div>
                         </div>
-                        <?php if (count($product['images']) > 1): ?>
-                            <div class="product-thumbnails" aria-label="Ảnh sản phẩm">
+                        <div class="product-thumbnails<?php echo count($product['images']) > 1 ? '' : ' product-thumbnails-empty'; ?>" aria-label="Ảnh sản phẩm">
+                            <?php if (count($product['images']) > 1): ?>
                                 <?php foreach ($product['images'] as $image): ?>
                                     <button type="button" class="product-thumbnail" aria-label="Xem ảnh sản phẩm" onclick="showProductImage(this, '<?php echo htmlspecialchars(rawurlencode($image), ENT_QUOTES, 'UTF-8'); ?>')">
                                         <img src="uploads/<?php echo rawurlencode($image); ?>" alt="" onerror="this.parentElement.hidden=true;">
                                     </button>
                                 <?php endforeach; ?>
-                            </div>
-                        <?php endif; ?>
+                            <?php endif; ?>
+                        </div>
                         <div class="product-info">
                             <h3 class="product-title"><?php echo htmlspecialchars($product['name']); ?></h3>
                             <div class="product-price"><?php echo number_format($product['price'], 0, ',', '.'); ?>đ</div>

@@ -6,6 +6,19 @@ if (!isset($_SESSION['admin_id'])) {
 }
 require '../config/database.php';
 
+$image_gallery_available = true;
+$image_gallery_error = null;
+try {
+    $pdo->query("SELECT image, sort_order FROM product_images LIMIT 0");
+} catch (PDOException $exception) {
+    if (!in_array($exception->getCode(), ['42S02', '42S22'], true)) {
+        throw $exception;
+    }
+    $image_gallery_available = false;
+    $image_gallery_error = 'Database Render thiếu cấu trúc bảng ảnh sản phẩm. Hãy chạy lệnh ALTER TABLE được hướng dẫn để bật lưu nhiều ảnh.';
+    error_log('Product image gallery schema is missing: ' . $exception->getMessage());
+}
+
 function uploadProductImages(): array
 {
     if (!isset($_FILES['images'])) {
@@ -57,7 +70,7 @@ function uploadProductImages(): array
     return $uploaded_images;
 }
 
-$form_error = null;
+$form_error = $image_gallery_available ? null : $image_gallery_error;
 if (
     $_SERVER['REQUEST_METHOD'] === 'POST'
     && empty($_POST)
@@ -69,7 +82,12 @@ if (
 
 // Xử lý thêm/sửa/xóa
 if ($_POST) {
-    if (isset($_POST['add_product'])) {
+    if (
+        !$image_gallery_available
+        && (isset($_POST['add_product']) || isset($_POST['edit_product']))
+    ) {
+        $form_error = $image_gallery_error;
+    } elseif (isset($_POST['add_product'])) {
         $name = $_POST['name'];
         $price = $_POST['price'];
         $link = $_POST['affiliate_link'];
@@ -100,7 +118,7 @@ if ($_POST) {
         }
     }
     
-    if (isset($_POST['edit_product'])) {
+    if (isset($_POST['edit_product']) && $image_gallery_available) {
         $id = $_POST['id'];
         $name = $_POST['name'];
         $price = $_POST['price'];
@@ -161,10 +179,12 @@ if (isset($_GET['delete'])) {
 // Lấy danh sách sản phẩm
 $stmt = $pdo->query("SELECT * FROM products ORDER BY created_at DESC");
 $products = $stmt->fetchAll();
-$image_stmt = $pdo->query("SELECT product_id, image FROM product_images ORDER BY sort_order, id");
 $product_images = [];
-foreach ($image_stmt->fetchAll() as $product_image) {
-    $product_images[$product_image['product_id']][] = $product_image['image'];
+if ($image_gallery_available) {
+    $image_stmt = $pdo->query("SELECT product_id, image FROM product_images ORDER BY sort_order, id");
+    foreach ($image_stmt->fetchAll() as $product_image) {
+        $product_images[$product_image['product_id']][] = $product_image['image'];
+    }
 }
 foreach ($products as &$product) {
     if (empty($product_images[$product['id']]) && $product['image']) {
