@@ -57,7 +57,7 @@ $latest_reviews = $stmt->fetchAll();
     <title>Review & Affiliate - Đánh giá sản phẩm tốt nhất</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="assets/css/style.css?v=4">
+    <link rel="stylesheet" href="assets/css/style.css?v=6">
 </head>
 <body>
     <!-- Header Navbar -->
@@ -129,7 +129,7 @@ $latest_reviews = $stmt->fetchAll();
                                     data-image-urls="<?php echo htmlspecialchars($productImageUrlsJson, ENT_QUOTES, 'UTF-8'); ?>"
                                     data-image-index="0"
                                     alt="<?php echo htmlspecialchars($product['name'], ENT_QUOTES, 'UTF-8'); ?>"
-                                    onerror="tryNextProductImage(this)"
+                                    onerror="if (typeof tryNextProductImage === 'function') { tryNextProductImage(this); } else { this.hidden = true; this.parentElement.querySelector('.product-image-placeholder').hidden = false; }"
                                 >
                                 <div class="product-image-placeholder" hidden>Ảnh không tải được. Kiểm tra URL hoặc tải ảnh lên lại.</div>
                             <?php else: ?>
