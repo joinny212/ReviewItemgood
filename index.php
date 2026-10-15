@@ -1,9 +1,11 @@
 <?php
 require 'config/database.php';
 require_once 'config/image_storage.php';
+header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
+header('Pragma: no-cache');
 
-// Lấy sản phẩm nổi bật (6 sản phẩm mới nhất)
-$stmt = $pdo->query("SELECT * FROM products ORDER BY created_at DESC LIMIT 6");
+// Hiển thị tất cả sản phẩm đang được quản lý trong admin.
+$stmt = $pdo->query("SELECT * FROM products ORDER BY created_at DESC");
 $featured_products = $stmt->fetchAll();
 
 $product_images = [];

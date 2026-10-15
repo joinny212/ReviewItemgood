@@ -71,21 +71,45 @@ if (
 
 // Xử lý thêm/sửa/xóa
 if ($_POST) {
-    if (
+    $action = $_POST['action'] ?? (
+        isset($_POST['edit_product']) ? 'edit' : (isset($_POST['add_product']) ? 'add' : '')
+    );
+    if ($action === 'delete') {
+        $id = filter_input(INPUT_POST, 'id', FILTER_VALIDATE_INT);
+        if (!$id) {
+            $form_error = 'Mã sản phẩm cần xóa không hợp lệ.';
+        } else {
+            $pdo->beginTransaction();
+            if ($image_gallery_available) {
+                $delete_images = $pdo->prepare("DELETE FROM product_images WHERE product_id = ?");
+                $delete_images->execute([$id]);
+            }
+            $delete_product = $pdo->prepare("DELETE FROM products WHERE id = ?");
+            $delete_product->execute([$id]);
+            $pdo->commit();
+            header('Location: products.php');
+            exit;
+        }
+    } elseif (
         !$image_gallery_available
-        && (isset($_POST['add_product']) || isset($_POST['edit_product']))
+        && in_array($action, ['add', 'edit'], true)
     ) {
         $form_error = $image_gallery_error;
-    } elseif (isset($_POST['add_product'])) {
+    } elseif ($action === 'add') {
+        if (!empty($_POST['id'])) {
+            $form_error = 'Đang sửa một sản phẩm. Hãy bấm Cập nhật, không bấm Thêm mới.';
+        }
         $name = $_POST['name'];
         $price = $_POST['price'];
         $link = $_POST['affiliate_link'];
         $desc = $_POST['description'];
         
-        try {
-            $images = uploadProductImages();
-        } catch (RuntimeException $exception) {
-            $form_error = $exception->getMessage();
+        if ($form_error === null) {
+            try {
+                $images = uploadProductImages();
+            } catch (RuntimeException $exception) {
+                $form_error = $exception->getMessage();
+            }
         }
 
         if ($form_error === null) {
@@ -107,17 +131,22 @@ if ($_POST) {
         }
     }
     
-    if (isset($_POST['edit_product']) && $image_gallery_available) {
-        $id = $_POST['id'];
+    if ($action === 'edit' && $image_gallery_available) {
+        $id = filter_input(INPUT_POST, 'id', FILTER_VALIDATE_INT);
+        if (!$id) {
+            $form_error = 'Hãy chọn một sản phẩm hợp lệ để cập nhật.';
+        }
         $name = $_POST['name'];
         $price = $_POST['price'];
         $link = $_POST['affiliate_link'];
         $desc = $_POST['description'];
         
-        try {
-            $images = uploadProductImages();
-        } catch (RuntimeException $exception) {
-            $form_error = $exception->getMessage();
+        if ($form_error === null) {
+            try {
+                $images = uploadProductImages();
+            } catch (RuntimeException $exception) {
+                $form_error = $exception->getMessage();
+            }
         }
 
         if ($form_error === null) {
@@ -155,14 +184,6 @@ if ($_POST) {
             exit;
         }
     }
-}
-
-if (isset($_GET['delete'])) {
-    $id = $_GET['delete'];
-    $stmt = $pdo->prepare("DELETE FROM products WHERE id=?");
-    $stmt->execute([$id]);
-    header('Location: products.php');
-    exit;
 }
 
 // Lấy danh sách sản phẩm
@@ -208,6 +229,7 @@ unset($product);
                     <div class="alert alert-danger"><?php echo htmlspecialchars($form_error); ?></div>
                 <?php endif; ?>
                 <form method="POST" enctype="multipart/form-data" id="productForm">
+                    <input type="hidden" name="action" id="product_action" value="add">
                     <div class="row">
                         <div class="col-md-6">
                             <input type="hidden" name="id" id="product_id">
@@ -236,8 +258,8 @@ unset($product);
                                 <div id="selectedImageCount" class="small text-muted mt-1">Chưa chọn ảnh mới</div>
                                 <div id="imagePreview" class="d-flex flex-wrap gap-2 mt-2"></div>
                             </div>
-                            <button type="submit" name="add_product" class="btn btn-primary me-2">Thêm mới</button>
-                            <button type="submit" name="edit_product" class="btn btn-warning">Cập nhật</button>
+                            <button type="submit" id="addProductButton" class="btn btn-primary me-2">Thêm mới</button>
+                            <button type="submit" id="updateProductButton" class="btn btn-warning" hidden>Cập nhật</button>
                             <button type="button" class="btn btn-secondary" onclick="resetForm()">Reset</button>
                         </div>
                     </div>
@@ -287,11 +309,11 @@ unset($product);
                                     <button class="btn btn-sm btn-info" onclick="editProduct(<?php echo $product['id']; ?>)">
                                         Sửa
                                     </button>
-                                    <a href="?delete=<?php echo $product['id']; ?>" 
-                                       class="btn btn-sm btn-danger" 
-                                       onclick="return confirm('Xóa sản phẩm này?')">
-                                        Xóa
-                                    </a>
+                                    <form method="POST" class="d-inline" onsubmit="return confirm('Xóa sản phẩm này?')">
+                                        <input type="hidden" name="action" value="delete">
+                                        <input type="hidden" name="id" value="<?php echo (int) $product['id']; ?>">
+                                        <button type="submit" class="btn btn-sm btn-danger">Xóa</button>
+                                    </form>
                                 </td>
                             </tr>
                             <?php endforeach; ?>
@@ -359,22 +381,38 @@ unset($product);
             selectedProductFiles = [];
             document.querySelectorAll('#productForm input[name="images[]"]').forEach(input => input.remove());
             document.getElementById('images').value = '';
-            fetch(`api/get_product.php?id=${id}`)
-                .then(response => response.json())
+            fetch(`api/get_product.php?id=${encodeURIComponent(id)}`)
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('Không tải được thông tin sản phẩm.');
+                    }
+                    return response.json();
+                })
                 .then(product => {
+                    if (!product.id) {
+                        throw new Error('Không tìm thấy sản phẩm cần sửa.');
+                    }
                     document.getElementById('product_id').value = product.id;
                     document.getElementById('name').value = product.name;
                     document.getElementById('price').value = product.price;
                     document.getElementById('affiliate_link').value = product.affiliate_link;
                     document.getElementById('description').value = product.description;
+                    document.getElementById('product_action').value = 'edit';
+                    document.getElementById('addProductButton').hidden = true;
+                    document.getElementById('updateProductButton').hidden = false;
                     currentProductImages = product.images || [];
                     renderImagePreview();
-                });
+                    document.getElementById('productForm').scrollIntoView({ behavior: 'smooth' });
+                })
+                .catch(error => window.alert(error.message));
         }
 
         function resetForm() {
-            document.querySelector('form').reset();
+            document.getElementById('productForm').reset();
             document.getElementById('product_id').value = '';
+            document.getElementById('product_action').value = 'add';
+            document.getElementById('addProductButton').hidden = false;
+            document.getElementById('updateProductButton').hidden = true;
             currentProductImages = [];
             selectedProductFiles = [];
             document.querySelectorAll('#productForm input[name="images[]"]').forEach(input => input.remove());
