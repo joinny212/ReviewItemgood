@@ -6,14 +6,23 @@ if (!isset($_SESSION['admin_id'])) {
 }
 require '../config/database.php';
 require_once '../config/image_storage.php';
+require_once '../config/product_price.php';
 
 $image_gallery_available = true;
 $image_gallery_error = null;
 $product_image_has_filename = false;
+$product_price_supports_ranges = false;
 try {
     $pdo->query("SELECT image, sort_order FROM product_images LIMIT 0");
     $columns = $pdo->query("SHOW COLUMNS FROM product_images")->fetchAll(PDO::FETCH_COLUMN);
     $product_image_has_filename = in_array('filename', $columns, true);
+    $product_columns = $pdo->query("SHOW COLUMNS FROM products")->fetchAll(PDO::FETCH_ASSOC);
+    foreach ($product_columns as $column) {
+        if ($column['Field'] === 'price') {
+            $product_price_supports_ranges = preg_match('/char|text/i', $column['Type']) === 1;
+            break;
+        }
+    }
 } catch (PDOException $exception) {
     if (!in_array($exception->getCode(), ['42S02', '42S22'], true)) {
         throw $exception;
@@ -144,7 +153,12 @@ if ($_POST) {
             $form_error = 'Đang sửa một sản phẩm. Hãy bấm Cập nhật, không bấm Thêm mới.';
         }
         $name = $_POST['name'];
-        $price = $_POST['price'];
+        $price = normalizeProductPrice((string) ($_POST['price'] ?? ''));
+        if ($price === null) {
+            $form_error = 'Giá không hợp lệ. Hãy nhập một giá hoặc khoảng giá, ví dụ: 130.000₫ - 280.000₫.';
+        } elseif (str_contains($price, ' - ') && !$product_price_supports_ranges) {
+            $form_error = "Cơ sở dữ liệu hiện tại chưa hỗ trợ khoảng giá. Hãy chạy: ALTER TABLE products MODIFY COLUMN price VARCHAR(50) NOT NULL DEFAULT '0';";
+        }
         $link = $_POST['affiliate_link'];
         $desc = $_POST['description'];
         
@@ -180,7 +194,12 @@ if ($_POST) {
             $form_error = 'Hãy chọn một sản phẩm hợp lệ để cập nhật.';
         }
         $name = $_POST['name'];
-        $price = $_POST['price'];
+        $price = normalizeProductPrice((string) ($_POST['price'] ?? ''));
+        if ($price === null) {
+            $form_error = 'Giá không hợp lệ. Hãy nhập một giá hoặc khoảng giá, ví dụ: 130.000₫ - 280.000₫.';
+        } elseif (str_contains($price, ' - ') && !$product_price_supports_ranges) {
+            $form_error = "Cơ sở dữ liệu hiện tại chưa hỗ trợ khoảng giá. Hãy chạy: ALTER TABLE products MODIFY COLUMN price VARCHAR(50) NOT NULL DEFAULT '0';";
+        }
         $link = $_POST['affiliate_link'];
         $desc = $_POST['description'];
         
@@ -281,7 +300,8 @@ unset($product);
                             </div>
                             <div class="mb-3">
                                 <label>Giá</label>
-                                <input type="number" step="0.01" class="form-control" name="price" id="price">
+                                <input type="text" inputmode="decimal" class="form-control" name="price" id="price" placeholder="130.000₫ - 280.000₫" required>
+                                <div class="form-text">Nhập một giá hoặc khoảng giá, ví dụ: 130.000₫ - 280.000₫.</div>
                             </div>
                             <div class="mb-3">
                                 <label>Link Affiliate</label>
@@ -342,7 +362,7 @@ unset($product);
                                     </div>
                                 </td>
                                 <td><?php echo htmlspecialchars($product['name']); ?></td>
-                                <td><?php echo number_format($product['price'], 0, ',', '.'); ?>đ</td>
+                                <td><?php echo htmlspecialchars(formatProductPrice($product['price']), ENT_QUOTES, 'UTF-8'); ?></td>
                                 <td>
                                     <a href="<?php echo $product['affiliate_link']; ?>" target="_blank" class="btn btn-sm btn-outline-primary">
                                         Xem link

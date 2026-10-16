@@ -1,6 +1,7 @@
 <?php
 require 'config/database.php';
 require_once 'config/image_storage.php';
+require_once 'config/product_price.php';
 header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
 header('Pragma: no-cache');
 
@@ -117,7 +118,7 @@ $latest_reviews = $stmt->fetchAll();
                         aria-label="Xem chi tiết sản phẩm: <?php echo htmlspecialchars($product['name'], ENT_QUOTES, 'UTF-8'); ?>"
                         data-product-name="<?php echo htmlspecialchars($product['name'], ENT_QUOTES, 'UTF-8'); ?>"
                         data-product-description="<?php echo htmlspecialchars($product['description'] ?? '', ENT_QUOTES, 'UTF-8'); ?>"
-                        data-product-price="<?php echo htmlspecialchars(number_format($product['price'], 0, ',', '.') . 'đ', ENT_QUOTES, 'UTF-8'); ?>"
+                        data-product-price="<?php echo htmlspecialchars(formatProductPrice($product['price']), ENT_QUOTES, 'UTF-8'); ?>"
                         data-product-link="<?php echo htmlspecialchars($product['affiliate_link'] ?? '', ENT_QUOTES, 'UTF-8'); ?>"
                         data-product-images="<?php echo htmlspecialchars(json_encode(array_map(
                             static fn(string $image): string => productImageUrl($image, 'uploads/'),
@@ -161,7 +162,7 @@ $latest_reviews = $stmt->fetchAll();
                         </div>
                         <div class="product-info">
                             <h3 class="product-title"><?php echo htmlspecialchars($product['name']); ?></h3>
-                            <div class="product-price"><?php echo number_format($product['price'], 0, ',', '.'); ?>đ</div>
+                            <div class="product-price"><?php echo htmlspecialchars(formatProductPrice($product['price']), ENT_QUOTES, 'UTF-8'); ?></div>
                             <a href="<?php echo $product['affiliate_link']; ?>" 
                                class="btn affiliate-btn" 
                                target="_blank">
