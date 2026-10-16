@@ -53,53 +53,81 @@ $products_stmt = $pdo->query("SELECT id, name FROM products ORDER BY name");
 $products = $products_stmt->fetchAll();
 
 // Xử lý thêm/sửa/xóa review
+$form_error = null;
 if ($_POST) {
-    $review_action = $_POST['review_action'] ?? (
-        isset($_POST['edit_review']) ? 'edit' : (isset($_POST['add_review']) ? 'add' : '')
-    );
+    $posted_review_id = filter_var($_POST['id'] ?? '', FILTER_VALIDATE_INT);
+    $review_action = $posted_review_id
+        ? 'edit'
+        : ($_POST['review_action'] ?? (
+            isset($_POST['edit_review']) ? 'edit' : (isset($_POST['add_review']) ? 'add' : '')
+        ));
+
     if ($review_action === 'add') {
-        $title = $_POST['title'];
-        $content = $_POST['content'];
-        $product_id = $_POST['product_id'] ?: null;
-        $rating = $_POST['rating'];
+        $title = trim($_POST['title'] ?? '');
+        $content = trim($_POST['content'] ?? '');
+        $product_id = ($_POST['product_id'] ?? '') ?: null;
+        $rating = filter_var($_POST['rating'] ?? '', FILTER_VALIDATE_INT);
         
         $target_dir = "../uploads/";
-        $image = $_FILES['image']['name'];
+        $image = $_FILES['image']['name'] ?? '';
         if ($image) {
             $image_name = time() . '_' . $image;
-            move_uploaded_file($_FILES['image']['tmp_name'], $target_dir . $image_name);
-            $image = $image_name;
+            if (!move_uploaded_file($_FILES['image']['tmp_name'], $target_dir . $image_name)) {
+                $form_error = 'Không thể lưu ảnh review. Hãy thử tải ảnh lên lại.';
+            } else {
+                $image = $image_name;
+            }
         }
-        
-        insertReview($pdo, $review_id_auto_increment, $title, $content, $product_id, (int) $rating, $image);
-        
-        $success = "Thêm bài review thành công!";
+
+        if ($form_error === null && ($title === '' || $content === '' || $rating === false || $rating < 1 || $rating > 5)) {
+            $form_error = 'Vui lòng nhập tiêu đề, nội dung và điểm đánh giá từ 1 đến 5.';
+        }
+
+        if ($form_error === null) {
+            insertReview($pdo, $review_id_auto_increment, $title, $content, $product_id, (int) $rating, $image);
+            $success = "Thêm bài review thành công!";
+        }
     }
     
     if ($review_action === 'edit') {
-        $id = filter_input(INPUT_POST, 'id', FILTER_VALIDATE_INT);
+        $id = $posted_review_id;
+        $title = trim($_POST['title'] ?? '');
+        $content = trim($_POST['content'] ?? '');
+        $product_id = ($_POST['product_id'] ?? '') ?: null;
+        $rating = filter_var($_POST['rating'] ?? '', FILTER_VALIDATE_INT);
+
         if (!$id) {
-            throw new RuntimeException('Mã bài review cần cập nhật không hợp lệ.');
+            $form_error = 'Không xác định được bài review cần cập nhật. Hãy bấm Sửa lại từ danh sách.';
+        } elseif ($title === '' || $content === '' || $rating === false || $rating < 1 || $rating > 5) {
+            $form_error = 'Vui lòng nhập tiêu đề, nội dung và điểm đánh giá từ 1 đến 5.';
+        } else {
+            $exists_stmt = $pdo->prepare("SELECT 1 FROM reviews WHERE id = ?");
+            $exists_stmt->execute([$id]);
+            if (!$exists_stmt->fetchColumn()) {
+                $form_error = 'Bài review cần cập nhật không còn tồn tại. Hãy tải lại trang.';
+            }
         }
-        $title = $_POST['title'];
-        $content = $_POST['content'];
-        $product_id = $_POST['product_id'] ?: null;
-        $rating = $_POST['rating'];
         
-        if (!empty($_FILES['image']['name'])) {
+        if ($form_error === null && !empty($_FILES['image']['name'])) {
             $target_dir = "../uploads/";
             $image_name = time() . '_' . $_FILES['image']['name'];
-            move_uploaded_file($_FILES['image']['tmp_name'], $target_dir . $image_name);
-            $image = $image_name;
-            
-            $stmt = $pdo->prepare("UPDATE reviews SET title=?, content=?, product_id=?, rating=?, image=? WHERE id=?");
-            $stmt->execute([$title, $content, $product_id, $rating, $image, $id]);
-        } else {
-            $stmt = $pdo->prepare("UPDATE reviews SET title=?, content=?, product_id=?, rating=? WHERE id=?");
-            $stmt->execute([$title, $content, $product_id, $rating, $id]);
+            if (!move_uploaded_file($_FILES['image']['tmp_name'], $target_dir . $image_name)) {
+                $form_error = 'Không thể lưu ảnh review. Hãy thử tải ảnh lên lại.';
+            } else {
+                $image = $image_name;
+            }
         }
-        
-        $success = "Cập nhật bài review thành công!";
+
+        if ($form_error === null) {
+            if (isset($image)) {
+                $stmt = $pdo->prepare("UPDATE reviews SET title=?, content=?, product_id=?, rating=?, image=? WHERE id=?");
+                $stmt->execute([$title, $content, $product_id, $rating, $image, $id]);
+            } else {
+                $stmt = $pdo->prepare("UPDATE reviews SET title=?, content=?, product_id=?, rating=? WHERE id=?");
+                $stmt->execute([$title, $content, $product_id, $rating, $id]);
+            }
+            $success = "Cập nhật bài review thành công!";
+        }
     }
 }
 
@@ -173,6 +201,9 @@ $reviews = $stmt->fetchAll();
                 <h5 class="mb-0"><i class="fas fa-edit me-2"></i>Thêm/Sửa Bài Review</h5>
             </div>
             <div class="card-body">
+                <?php if ($form_error !== null): ?>
+                    <div class="alert alert-danger" role="alert"><?php echo htmlspecialchars($form_error, ENT_QUOTES, 'UTF-8'); ?></div>
+                <?php endif; ?>
                 <form method="POST" enctype="multipart/form-data" id="reviewForm">
                     <input type="hidden" name="id" id="review_id">
                     <input type="hidden" name="review_action" id="review_action" value="add">
@@ -503,6 +534,11 @@ $reviews = $stmt->fetchAll();
                 showNotification(error.message || 'Không thể tải bài review để sửa.', 'danger');
             }
         };
+
+        document.getElementById('reviewForm').addEventListener('submit', () => {
+            const reviewId = document.getElementById('review_id').value;
+            document.getElementById('review_action').value = reviewId ? 'edit' : 'add';
+        });
 
         // Preview review
         window.previewReview = function(id) {
