@@ -6,6 +6,48 @@ if (!isset($_SESSION['admin_id'])) {
 }
 require '../config/database.php';
 
+$review_columns = $pdo->query("SHOW COLUMNS FROM reviews")->fetchAll(PDO::FETCH_ASSOC);
+$review_id_auto_increment = false;
+foreach ($review_columns as $column) {
+    if ($column['Field'] === 'id') {
+        $review_id_auto_increment = stripos($column['Extra'], 'auto_increment') !== false;
+        break;
+    }
+}
+
+function insertReview(PDO $pdo, bool $idAutoIncrement, string $title, string $content, ?string $productId, int $rating, string $image): void
+{
+    if ($idAutoIncrement) {
+        $stmt = $pdo->prepare(
+            "INSERT INTO reviews (title, content, product_id, rating, image) VALUES (?, ?, ?, ?, ?)"
+        );
+        try {
+            $stmt->execute([$title, $content, $productId, $rating, $image]);
+            return;
+        } catch (PDOException $exception) {
+            if (($exception->errorInfo[1] ?? null) !== 1364) {
+                throw $exception;
+            }
+        }
+    }
+
+    $stmt = $pdo->prepare(
+        "INSERT INTO reviews (id, title, content, product_id, rating, image) VALUES (?, ?, ?, ?, ?, ?)"
+    );
+    for ($attempt = 0; $attempt < 5; $attempt++) {
+        try {
+            $stmt->execute([random_int(1, 2147483647), $title, $content, $productId, $rating, $image]);
+            return;
+        } catch (PDOException $exception) {
+            if (($exception->errorInfo[1] ?? null) !== 1062) {
+                throw $exception;
+            }
+        }
+    }
+
+    throw new RuntimeException('Không thể cấp ID duy nhất cho bài review sau nhiều lần thử.');
+}
+
 // Lấy danh sách products để dropdown
 $products_stmt = $pdo->query("SELECT id, name FROM products ORDER BY name");
 $products = $products_stmt->fetchAll();
@@ -26,8 +68,7 @@ if ($_POST) {
             $image = $image_name;
         }
         
-        $stmt = $pdo->prepare("INSERT INTO reviews (title, content, product_id, rating, image) VALUES (?, ?, ?, ?, ?)");
-        $stmt->execute([$title, $content, $product_id, $rating, $image]);
+        insertReview($pdo, $review_id_auto_increment, $title, $content, $product_id, (int) $rating, $image);
         
         $success = "Thêm bài review thành công!";
     }
@@ -201,7 +242,7 @@ $reviews = $stmt->fetchAll();
                             <i class="fas fa-save me-2"></i>Cập nhật
                         </button>
                         <button type="submit" name="add_review" class="btn btn-primary">
-                            <i class="fas fa-plus me-2"></i>Thêm mới
+                            <i class="fas fa-save me-2"></i>Lưu bài viết
                         </button>
                     </div>
                 </form>
