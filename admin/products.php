@@ -20,6 +20,27 @@ try {
     error_log('Product image gallery schema is missing: ' . $exception->getMessage());
 }
 
+function insertProductImage(PDO $pdo, int $productId, string $image, int $sortOrder): void
+{
+    $stmt = $pdo->prepare(
+        "INSERT INTO product_images (id, product_id, image, sort_order) VALUES (?, ?, ?, ?)"
+    );
+
+    for ($attempt = 0; $attempt < 5; $attempt++) {
+        $id = random_int(1, 2147483647);
+        try {
+            $stmt->execute([$id, $productId, $image, $sortOrder]);
+            return;
+        } catch (PDOException $exception) {
+            if (($exception->errorInfo[1] ?? null) !== 1062) {
+                throw $exception;
+            }
+        }
+    }
+
+    throw new RuntimeException('Không thể cấp ID duy nhất cho ảnh sản phẩm sau nhiều lần thử.');
+}
+
 function uploadProductImages(): array
 {
     if (!isset($_FILES['images']) || !is_array($_FILES['images']['name'])) {
@@ -127,9 +148,8 @@ if ($_POST) {
             $product_id = $pdo->lastInsertId();
 
             if ($images) {
-                $image_stmt = $pdo->prepare("INSERT INTO product_images (product_id, image, sort_order) VALUES (?, ?, ?)");
                 foreach ($images as $sort_order => $image) {
-                    $image_stmt->execute([$product_id, $image, $sort_order]);
+                    insertProductImage($pdo, (int) $product_id, $image, $sort_order);
                 }
             }
 
@@ -179,9 +199,8 @@ if ($_POST) {
                 $all_images = array_merge($images, $existing_images);
                 $delete_stmt = $pdo->prepare("DELETE FROM product_images WHERE product_id = ?");
                 $delete_stmt->execute([$id]);
-                $insert_image = $pdo->prepare("INSERT INTO product_images (product_id, image, sort_order) VALUES (?, ?, ?)");
                 foreach ($all_images as $sort_order => $image) {
-                    $insert_image->execute([$id, $image, $sort_order]);
+                    insertProductImage($pdo, $id, $image, $sort_order);
                 }
                 $update_primary = $pdo->prepare("UPDATE products SET image = ? WHERE id = ?");
                 $update_primary->execute([$all_images[0], $id]);
