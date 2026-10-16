@@ -73,6 +73,12 @@ if (isset($_GET['edit'])) {
         }
     }
 }
+$editingImageUrl = reviewImageUrl(
+    $editing_review['image'] ?? null,
+    $editing_review['product_image'] ?? null,
+    '../uploads/',
+    __DIR__ . '/../uploads/'
+);
 
 function uploadReviewImage(array $file): string
 {
@@ -209,6 +215,14 @@ $reviews = $stmt->fetchAll();
             border-radius: 8px;
             object-fit: cover;
         }
+        .review-upload-preview-image {
+            display: block;
+            max-width: 100%;
+            max-height: 180px;
+            margin: 0 auto 0.5rem;
+            border-radius: 8px;
+            object-fit: contain;
+        }
         .form-floating textarea {
             min-height: 120px;
         }
@@ -295,27 +309,18 @@ $reviews = $stmt->fetchAll();
                                     <label class="form-label fw-bold mb-3 d-block">
                                         <i class="fas fa-image text-primary me-2"></i>Hình ảnh minh họa
                                     </label>
-                                    <div id="imagePreview" class="mb-3 p-4 border-dashed border-2 rounded-3 bg-white">
-                                        <i class="fas fa-cloud-upload-alt fa-3x text-muted mb-2"></i>
-                                        <p class="text-muted mb-0">Click để upload ảnh</p>
+                                    <div id="imagePreview" class="mb-3 p-4 border-dashed border-2 rounded-3 bg-white" data-current-image="<?php echo htmlspecialchars($editingImageUrl, ENT_QUOTES, 'UTF-8'); ?>">
+                                        <?php if ($editingImageUrl !== ''): ?>
+                                            <img src="<?php echo htmlspecialchars($editingImageUrl, ENT_QUOTES, 'UTF-8'); ?>" class="review-upload-preview-image" alt="Ảnh hiện tại">
+                                            <p class="text-muted mb-0">Ảnh hiện tại — bấm để chọn ảnh khác</p>
+                                        <?php else: ?>
+                                            <i class="fas fa-cloud-upload-alt fa-3x text-muted mb-2"></i>
+                                            <p class="text-muted mb-0">Bấm để chọn ảnh</p>
+                                        <?php endif; ?>
                                         <small class="text-muted">JPEG, PNG, GIF, WebP (tối đa 5 MB)</small>
                                     </div>
                                     <input type="file" class="form-control" name="image" id="review_image" 
                                            accept="image/*" style="display: none;">
-                                    <div class="current-image mt-3" id="currentImage">
-                                        <?php
-                                            $editingImageUrl = reviewImageUrl(
-                                                $editing_review['image'] ?? null,
-                                                $editing_review['product_image'] ?? null,
-                                                '../uploads/',
-                                                __DIR__ . '/../uploads/'
-                                            );
-                                        ?>
-                                        <?php if ($editingImageUrl !== ''): ?>
-                                            <small class="text-success d-block mb-1">Ảnh hiện tại</small>
-                                            <img src="<?php echo htmlspecialchars($editingImageUrl, ENT_QUOTES, 'UTF-8'); ?>" class="preview-img" alt="Ảnh review hiện tại">
-                                        <?php endif; ?>
-                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -472,55 +477,73 @@ $reviews = $stmt->fetchAll();
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
     <script src="../../assets/js/script.js?v=2"></script>
     <script>
-        // Image upload preview
+        const reviewImageInput = document.getElementById('review_image');
+        const imagePreview = document.getElementById('imagePreview');
+        let originalImageUrl = imagePreview.dataset.currentImage || '';
+
+        function renderImagePlaceholder() {
+            imagePreview.replaceChildren();
+            if (originalImageUrl) {
+                const image = document.createElement('img');
+                image.src = originalImageUrl;
+                image.alt = 'Ảnh hiện tại';
+                image.className = 'review-upload-preview-image';
+                imagePreview.appendChild(image);
+                const text = document.createElement('p');
+                text.className = 'text-muted mb-0';
+                text.textContent = 'Ảnh hiện tại — bấm để chọn ảnh khác';
+                imagePreview.appendChild(text);
+            } else {
+                const icon = document.createElement('i');
+                icon.className = 'fas fa-cloud-upload-alt fa-3x text-muted mb-2';
+                imagePreview.appendChild(icon);
+                const text = document.createElement('p');
+                text.className = 'text-muted mb-0';
+                text.textContent = 'Bấm để chọn ảnh';
+                imagePreview.appendChild(text);
+            }
+            const note = document.createElement('small');
+            note.className = 'text-muted';
+            note.textContent = 'JPEG, PNG, GIF, WebP (tối đa 5 MB)';
+            imagePreview.appendChild(note);
+        }
+
         document.getElementById('review_image').addEventListener('change', function(e) {
             const file = e.target.files[0];
-            const preview = document.getElementById('imagePreview');
-            const currentImage = document.getElementById('currentImage');
-            
-            if (file) {
-                const reader = new FileReader();
-                reader.onload = function(e) {
-                    preview.innerHTML = `
-                        <img src="${e.target.result}" class="preview-img mb-2" id="previewImg">
-                        <div class="btn-group w-100">
-                            <button type="button" class="btn btn-success btn-sm flex-fill" onclick="setAsCurrentImage()">
-                                <i class="fas fa-check me-1"></i>Sử dụng
-                            </button>
-                            <button type="button" class="btn btn-outline-secondary btn-sm" onclick="clearImagePreview()">
-                                <i class="fas fa-times me-1"></i>Hủy
-                            </button>
-                        </div>
-                    `;
-                };
-                reader.readAsDataURL(file);
+            if (!file) {
+                return;
+            }
+
+            const reader = new FileReader();
+            reader.addEventListener('load', () => {
+                imagePreview.replaceChildren();
+                const image = document.createElement('img');
+                image.src = reader.result;
+                image.alt = 'Ảnh đã chọn';
+                image.className = 'review-upload-preview-image';
+                imagePreview.appendChild(image);
+                const text = document.createElement('p');
+                text.className = 'text-success mb-0';
+                text.textContent = `Đã chọn: ${file.name}`;
+                imagePreview.appendChild(text);
+            });
+            reader.readAsDataURL(file);
+        });
+
+        imagePreview.addEventListener('click', event => {
+            if (!event.target.closest('button')) {
+                reviewImageInput.click();
             }
         });
 
-        function setAsCurrentImage() {
-            const previewImg = document.getElementById('previewImg');
-            document.getElementById('currentImage').innerHTML = `
-                <small class="text-success d-block mb-1">
-                    <i class="fas fa-check-circle me-1"></i>Ảnh đã chọn
-                </small>
-                <img src="${previewImg.src}" class="preview-img">
-            `;
+        function clearImagePreview(resetOriginalImage = false) {
+            reviewImageInput.value = '';
+            if (resetOriginalImage) {
+                originalImageUrl = '';
+                imagePreview.dataset.currentImage = '';
+            }
+            renderImagePlaceholder();
         }
-
-        function clearImagePreview() {
-            document.getElementById('imagePreview').innerHTML = `
-                <i class="fas fa-cloud-upload-alt fa-3x text-muted mb-2"></i>
-                <p class="text-muted mb-0">Click để upload ảnh</p>
-                <small class="text-muted">JPG, PNG (Max 5MB)</small>
-            `;
-            document.getElementById('review_image').value = '';
-            document.getElementById('currentImage').innerHTML = '';
-        }
-
-        // Trigger file input
-        document.getElementById('imagePreview').addEventListener('click', function() {
-            document.getElementById('review_image').click();
-        });
 
         // Reset form
         window.resetReviewForm = function() {
@@ -529,7 +552,7 @@ $reviews = $stmt->fetchAll();
             document.getElementById('review_action').value = 'add';
             document.getElementById('updateReviewButton').hidden = true;
             document.getElementById('addReviewButton').hidden = false;
-            clearImagePreview();
+            clearImagePreview(true);
             showNotification('Đã reset form review!', 'info');
         };
 
