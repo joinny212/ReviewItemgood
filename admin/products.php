@@ -296,7 +296,7 @@ unset($product);
                             <div class="mb-3">
                                 <label for="images">Ảnh sản phẩm</label>
                                 <input type="file" class="form-control" name="images[]" id="images" accept="image/jpeg,image/png,image/gif,image/webp" multiple>
-                                <div class="form-text">Chọn nhiều ảnh trong cùng hộp thoại (giữ Ctrl hoặc Shift khi chọn). Tối đa 30 ảnh, 20 MB mỗi ảnh. Khi cập nhật, ảnh mới được thêm vào bộ ảnh hiện có.</div>
+                                <div class="form-text">Chọn nhiều ảnh cùng lúc hoặc bấm Chọn tệp thêm lần nữa để cộng dồn ảnh. Tối đa 30 ảnh, 20 MB mỗi ảnh.</div>
                                 <div id="selectedImageCount" class="small text-muted mt-1">Chưa chọn ảnh mới</div>
                                 <div id="selectedImageNames" class="small text-muted"></div>
                                 <div id="imagePreview" class="d-flex flex-wrap gap-2 mt-2"></div>
@@ -372,6 +372,19 @@ unset($product);
         let currentProductImages = [];
         let selectedProductFiles = [];
 
+        function clearSelectedImageInputs() {
+            document.querySelectorAll('#productForm input[name="images[]"]').forEach((input, index) => {
+                if (index === 0) {
+                    input.value = '';
+                    input.hidden = false;
+                    input.id = 'images';
+                } else {
+                    input.remove();
+                }
+            });
+            selectedProductFiles = [];
+        }
+
         function renderImagePreview() {
             const preview = document.getElementById('imagePreview');
             preview.innerHTML = '';
@@ -411,8 +424,7 @@ unset($product);
         }
 
         function editProduct(id) {
-            selectedProductFiles = [];
-            document.getElementById('images').value = '';
+            clearSelectedImageInputs();
             renderImagePreview();
             fetch(`api/get_product.php?id=${encodeURIComponent(id)}`)
                 .then(response => {
@@ -447,27 +459,41 @@ unset($product);
             document.getElementById('addProductButton').hidden = false;
             document.getElementById('updateProductButton').hidden = true;
             currentProductImages = [];
-            selectedProductFiles = [];
+            clearSelectedImageInputs();
             renderImagePreview();
         }
 
-        document.getElementById('images').addEventListener('change', event => {
-            const newFiles = Array.from(event.target.files);
-            if (newFiles.length > 30) {
-                window.alert('Bạn chỉ có thể tải tối đa 30 ảnh cho mỗi lần lưu. Hãy chọn lại ảnh.');
-                event.target.value = '';
-                selectedProductFiles = [];
-                renderImagePreview();
+        document.getElementById('productForm').addEventListener('change', event => {
+            const fileInput = event.target;
+            if (!(fileInput instanceof HTMLInputElement) || fileInput.type !== 'file' || fileInput.name !== 'images[]') {
+                return;
+            }
+
+            const newFiles = Array.from(fileInput.files);
+            if (selectedProductFiles.length + newFiles.length > 30) {
+                window.alert('Mỗi sản phẩm chỉ được tải tối đa 30 ảnh.');
+                fileInput.value = '';
                 return;
             }
             if (newFiles.some(file => file.size > 20 * 1024 * 1024)) {
-                window.alert('Mỗi ảnh phải có dung lượng tối đa 20 MB. Hãy chọn lại ảnh.');
-                event.target.value = '';
-                selectedProductFiles = [];
-                renderImagePreview();
+                window.alert('Mỗi ảnh phải có dung lượng tối đa 20 MB.');
+                fileInput.value = '';
                 return;
             }
-            selectedProductFiles = newFiles;
+
+            if (!newFiles.length) {
+                return;
+            }
+
+            selectedProductFiles.push(...newFiles);
+            fileInput.hidden = true;
+            fileInput.removeAttribute('id');
+
+            const nextInput = fileInput.cloneNode();
+            nextInput.value = '';
+            nextInput.hidden = false;
+            nextInput.id = 'images';
+            fileInput.after(nextInput);
             renderImagePreview();
         });
 
