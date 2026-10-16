@@ -54,7 +54,10 @@ $products = $products_stmt->fetchAll();
 
 // Xử lý thêm/sửa/xóa review
 if ($_POST) {
-    if (isset($_POST['add_review'])) {
+    $review_action = $_POST['review_action'] ?? (
+        isset($_POST['edit_review']) ? 'edit' : (isset($_POST['add_review']) ? 'add' : '')
+    );
+    if ($review_action === 'add') {
         $title = $_POST['title'];
         $content = $_POST['content'];
         $product_id = $_POST['product_id'] ?: null;
@@ -73,14 +76,17 @@ if ($_POST) {
         $success = "Thêm bài review thành công!";
     }
     
-    if (isset($_POST['edit_review'])) {
-        $id = $_POST['id'];
+    if ($review_action === 'edit') {
+        $id = filter_input(INPUT_POST, 'id', FILTER_VALIDATE_INT);
+        if (!$id) {
+            throw new RuntimeException('Mã bài review cần cập nhật không hợp lệ.');
+        }
         $title = $_POST['title'];
         $content = $_POST['content'];
         $product_id = $_POST['product_id'] ?: null;
         $rating = $_POST['rating'];
         
-        if ($_FILES['image']['name']) {
+        if (!empty($_FILES['image']['name'])) {
             $target_dir = "../uploads/";
             $image_name = time() . '_' . $_FILES['image']['name'];
             move_uploaded_file($_FILES['image']['tmp_name'], $target_dir . $image_name);
@@ -169,6 +175,7 @@ $reviews = $stmt->fetchAll();
             <div class="card-body">
                 <form method="POST" enctype="multipart/form-data" id="reviewForm">
                     <input type="hidden" name="id" id="review_id">
+                    <input type="hidden" name="review_action" id="review_action" value="add">
                     
                     <div class="row">
                         <!-- Cột trái -->
@@ -238,10 +245,10 @@ $reviews = $stmt->fetchAll();
                         <button type="button" class="btn btn-outline-secondary" onclick="resetReviewForm()">
                             <i class="fas fa-undo me-2"></i>Reset
                         </button>
-                        <button type="submit" name="edit_review" class="btn btn-warning" hidden>
+                        <button type="submit" id="updateReviewButton" class="btn btn-warning" hidden>
                             <i class="fas fa-save me-2"></i>Cập nhật
                         </button>
-                        <button type="submit" name="add_review" id="addReviewButton" class="btn btn-primary">
+                        <button type="submit" id="addReviewButton" class="btn btn-primary">
                             <i class="fas fa-save me-2"></i>Lưu bài viết
                         </button>
                     </div>
@@ -319,7 +326,16 @@ $reviews = $stmt->fetchAll();
                                 <td>
                                     <div class="btn-group btn-group-sm" role="group">
                                         <button class="btn btn-outline-info" 
-                                                onclick="editReview(<?php echo $review['id']; ?>)"
+                                                type="button"
+                                                onclick="editReview(this)"
+                                                data-review="<?php echo htmlspecialchars(json_encode([
+                                                    'id' => (int) $review['id'],
+                                                    'title' => $review['title'],
+                                                    'content' => $review['content'],
+                                                    'rating' => (int) $review['rating'],
+                                                    'product_id' => $review['product_id'],
+                                                    'image' => $review['image'],
+                                                ], JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_TAG | JSON_HEX_AMP | JSON_INVALID_UTF8_SUBSTITUTE), ENT_QUOTES, 'UTF-8'); ?>"
                                                 title="Sửa">
                                             <i class="fas fa-edit"></i>
                                         </button>
@@ -429,7 +445,8 @@ $reviews = $stmt->fetchAll();
         window.resetReviewForm = function() {
             document.getElementById('reviewForm').reset();
             document.getElementById('review_id').value = '';
-            document.querySelector('[name="edit_review"]').hidden = true;
+            document.getElementById('review_action').value = 'add';
+            document.getElementById('updateReviewButton').hidden = true;
             document.getElementById('addReviewButton').hidden = false;
             clearImagePreview();
             showNotification('Đã reset form review!', 'info');
@@ -451,37 +468,34 @@ $reviews = $stmt->fetchAll();
         };
 
         // Edit review
-        window.editReview = async function(id) {
+        window.editReview = function(button) {
             try {
-                const response = await fetch(`api/get_review.php?id=${encodeURIComponent(id)}`, {
-                    headers: { Accept: 'application/json' }
-                });
-                const review = await response.json();
-                if (!response.ok || !review.id) {
-                    throw new Error(review.error || 'Không tìm thấy bài review cần sửa.');
+                const review = JSON.parse(button.dataset.review || '{}');
+                if (!review.id) {
+                    throw new Error('Không tìm thấy thông tin bài review cần sửa.');
                 }
                 
-                // Fill form
                 document.getElementById('review_id').value = review.id;
+                document.getElementById('review_action').value = 'edit';
                 document.getElementById('review_title').value = review.title;
                 document.getElementById('review_content').value = review.content;
                 document.getElementById('review_rating').value = review.rating;
                 document.getElementById('review_product_id').value = review.product_id || '';
-                document.querySelector('[name="edit_review"]').hidden = false;
+                document.getElementById('updateReviewButton').hidden = false;
                 document.getElementById('addReviewButton').hidden = true;
                 
-                // Show current image
-                document.getElementById('currentImage').innerHTML = '';
+                const currentImage = document.getElementById('currentImage');
+                currentImage.replaceChildren();
                 if (review.image) {
-                    document.getElementById('currentImage').innerHTML = `
-                        <small class="text-success d-block mb-1">
-                            <i class="fas fa-check-circle me-1"></i>Ảnh hiện tại
-                        </small>
-                        <img src="../uploads/${review.image}" class="preview-img">
-                    `;
+                    const imageLabel = document.createElement('small');
+                    imageLabel.className = 'text-success d-block mb-1';
+                    imageLabel.textContent = 'Ảnh hiện tại';
+                    const image = document.createElement('img');
+                    image.src = `../uploads/${encodeURIComponent(review.image)}`;
+                    image.className = 'preview-img';
+                    currentImage.append(imageLabel, image);
                 }
                 
-                // Scroll to form
                 document.querySelector('#reviewForm').scrollIntoView({ behavior: 'smooth' });
                 showNotification('Đã load thông tin review!', 'info');
                 
