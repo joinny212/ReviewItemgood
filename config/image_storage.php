@@ -37,7 +37,7 @@ function normalizeProductImages(array $images): array
     return $normalized;
 }
 
-function uploadProductImageToCloudinary(string $filePath, string $mimeType): string
+function uploadImageToCloudinary(string $filePath, string $mimeType, string $folder): string
 {
     $cloudName = getenv('CLOUDINARY_CLOUD_NAME');
     $apiKey = getenv('CLOUDINARY_API_KEY');
@@ -56,7 +56,6 @@ function uploadProductImageToCloudinary(string $filePath, string $mimeType): str
     }
 
     $timestamp = time();
-    $folder = 'products';
     $signature = sha1('folder=' . $folder . '&timestamp=' . $timestamp . $apiSecret);
     $postFields = [
         'file' => new CURLFile($filePath, $mimeType, basename($filePath)),
@@ -99,4 +98,9 @@ function uploadProductImageToCloudinary(string $filePath, string $mimeType): str
     }
 
     return $response['secure_url'];
+}
+
+function uploadProductImageToCloudinary(string $filePath, string $mimeType): string
+{
+    return uploadImageToCloudinary($filePath, $mimeType, 'products');
 }

@@ -228,8 +228,9 @@ $latest_reviews = $stmt->fetchAll();
                         </div>
                         <div class="card-body p-4">
                             <p class="text-muted mb-3"><?php echo substr($review['content'], 0, 200); ?>...</p>
-                            <?php if($review['product_image']): ?>
-                                <img src="<?php echo htmlspecialchars(productImageUrl($review['product_image'], 'uploads/'), ENT_QUOTES, 'UTF-8'); ?>" 
+                            <?php $reviewCardImage = $review['image'] ?: ($review['product_image'] ?? ''); ?>
+                            <?php if($reviewCardImage): ?>
+                                <img src="<?php echo htmlspecialchars(productImageUrl($reviewCardImage, 'uploads/'), ENT_QUOTES, 'UTF-8'); ?>"
                                      class="img-fluid rounded mb-3" 
                                      style="max-height: 150px; object-fit: cover;"
                                      alt="<?php echo $review['product_name']; ?>">

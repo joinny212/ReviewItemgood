@@ -5,6 +5,7 @@ if (!isset($_SESSION['admin_id'])) {
     exit;
 }
 require '../config/database.php';
+require_once '../config/image_storage.php';
 
 $review_columns = $pdo->query("SHOW COLUMNS FROM reviews")->fetchAll(PDO::FETCH_ASSOC);
 $review_id_auto_increment = false;
@@ -52,6 +53,26 @@ function insertReview(PDO $pdo, bool $idAutoIncrement, string $title, string $co
 $products_stmt = $pdo->query("SELECT id, name FROM products ORDER BY name");
 $products = $products_stmt->fetchAll();
 
+function uploadReviewImage(array $file): string
+{
+    if (($file['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK) {
+        throw new RuntimeException('Tải ảnh review lên thất bại. Hãy chọn lại ảnh và thử lại.');
+    }
+    if (($file['size'] ?? 0) > 5 * 1024 * 1024) {
+        throw new RuntimeException('Ảnh review phải có dung lượng tối đa 5 MB.');
+    }
+
+    $mimeType = (new finfo(FILEINFO_MIME_TYPE))->file($file['tmp_name']);
+    if (!in_array($mimeType, ['image/jpeg', 'image/png', 'image/gif', 'image/webp'], true)) {
+        throw new RuntimeException('Ảnh review phải có định dạng JPEG, PNG, GIF hoặc WebP.');
+    }
+    if (!is_uploaded_file($file['tmp_name'])) {
+        throw new RuntimeException('Tệp ảnh review tải lên không hợp lệ.');
+    }
+
+    return uploadImageToCloudinary($file['tmp_name'], $mimeType, 'reviews');
+}
+
 // Xử lý thêm/sửa/xóa review
 $form_error = null;
 if ($_POST) {
@@ -68,14 +89,12 @@ if ($_POST) {
         $product_id = ($_POST['product_id'] ?? '') ?: null;
         $rating = filter_var($_POST['rating'] ?? '', FILTER_VALIDATE_INT);
         
-        $target_dir = "../uploads/";
-        $image = $_FILES['image']['name'] ?? '';
-        if ($image) {
-            $image_name = time() . '_' . $image;
-            if (!move_uploaded_file($_FILES['image']['tmp_name'], $target_dir . $image_name)) {
-                $form_error = 'Không thể lưu ảnh review. Hãy thử tải ảnh lên lại.';
-            } else {
-                $image = $image_name;
+        $image = '';
+        if (!empty($_FILES['image']['name'])) {
+            try {
+                $image = uploadReviewImage($_FILES['image']);
+            } catch (RuntimeException $exception) {
+                $form_error = $exception->getMessage();
             }
         }
 
@@ -109,12 +128,10 @@ if ($_POST) {
         }
         
         if ($form_error === null && !empty($_FILES['image']['name'])) {
-            $target_dir = "../uploads/";
-            $image_name = time() . '_' . $_FILES['image']['name'];
-            if (!move_uploaded_file($_FILES['image']['tmp_name'], $target_dir . $image_name)) {
-                $form_error = 'Không thể lưu ảnh review. Hãy thử tải ảnh lên lại.';
-            } else {
-                $image = $image_name;
+            try {
+                $image = uploadReviewImage($_FILES['image']);
+            } catch (RuntimeException $exception) {
+                $form_error = $exception->getMessage();
             }
         }
 
@@ -260,7 +277,7 @@ $reviews = $stmt->fetchAll();
                                     <div id="imagePreview" class="mb-3 p-4 border-dashed border-2 rounded-3 bg-white">
                                         <i class="fas fa-cloud-upload-alt fa-3x text-muted mb-2"></i>
                                         <p class="text-muted mb-0">Click để upload ảnh</p>
-                                        <small class="text-muted">JPG, PNG (Max 5MB)</small>
+                                        <small class="text-muted">JPEG, PNG, GIF, WebP (tối đa 5 MB)</small>
                                     </div>
                                     <input type="file" class="form-control" name="image" id="review_image" 
                                            accept="image/*" style="display: none;">
@@ -318,7 +335,7 @@ $reviews = $stmt->fetchAll();
                             <tr data-title="<?php echo strtolower($review['title']); ?>">
                                 <td>
                                     <?php if($review['image']): ?>
-                                        <img src="../uploads/<?php echo $review['image']; ?>" 
+                                        <img src="<?php echo htmlspecialchars(productImageUrl($review['image'], '../uploads/'), ENT_QUOTES, 'UTF-8'); ?>"
                                              class="preview-img" 
                                              alt="Review image"
                                              onerror="this.src='https://via.placeholder.com/80x80?text=No+Img'">
@@ -365,7 +382,7 @@ $reviews = $stmt->fetchAll();
                                                     'content' => $review['content'],
                                                     'rating' => (int) $review['rating'],
                                                     'product_id' => $review['product_id'],
-                                                    'image' => $review['image'],
+                                                    'image' => productImageUrl($review['image'], '../uploads/'),
                                                 ], JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_TAG | JSON_HEX_AMP | JSON_INVALID_UTF8_SUBSTITUTE), ENT_QUOTES, 'UTF-8'); ?>"
                                                 title="Sửa">
                                             <i class="fas fa-edit"></i>
@@ -522,7 +539,7 @@ $reviews = $stmt->fetchAll();
                     imageLabel.className = 'text-success d-block mb-1';
                     imageLabel.textContent = 'Ảnh hiện tại';
                     const image = document.createElement('img');
-                    image.src = `../uploads/${encodeURIComponent(review.image)}`;
+                    image.src = review.image;
                     image.className = 'preview-img';
                     currentImage.append(imageLabel, image);
                 }
@@ -561,7 +578,7 @@ $reviews = $stmt->fetchAll();
                                 ).join('')}
                             </div>
                             <h4 class="fw-bold mb-3">${review.title}</h4>
-                            ${review.image ? `<img src="../uploads/${review.image}" class="img-fluid rounded mb-3" style="max-height: 300px;">` : ''}
+                            ${review.image ? `<img src="${/^https?:\/\//i.test(review.image) ? review.image : `../uploads/${encodeURIComponent(review.image)}`}" class="img-fluid rounded mb-3" style="max-height: 300px;">` : ''}
                             <div class="review-content">${review.content.replace(/\n/g, '<br>')}</div>
                             ${review.product_name ? `<div class="mt-3 p-2 bg-light rounded">
                                 <strong>Sản phẩm:</strong> ${review.product_name}
