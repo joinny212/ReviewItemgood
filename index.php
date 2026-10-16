@@ -57,7 +57,7 @@ $latest_reviews = $stmt->fetchAll();
     <title>Review & Affiliate - Đánh giá sản phẩm tốt nhất</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="assets/css/style.css?v=9">
+    <link rel="stylesheet" href="assets/css/style.css?v=10">
 </head>
 <body>
     <!-- Header Navbar -->
@@ -182,10 +182,16 @@ $latest_reviews = $stmt->fetchAll();
                 <button type="button" class="btn-close" data-close-product-details aria-label="Đóng"></button>
             </div>
             <div class="modal-body">
-                <div id="productDetailsGallery" class="product-details-gallery mb-3"></div>
-                <div id="productDetailsThumbnails" class="product-details-thumbnails mb-3"></div>
-                <div id="productDetailsPrice" class="product-price"></div>
-                <p id="productDetailsDescription" class="product-details-description"></p>
+                <div class="product-details-layout">
+                    <div class="product-details-media">
+                        <div id="productDetailsGallery" class="product-details-gallery mb-3"></div>
+                        <div id="productDetailsThumbnails" class="product-details-thumbnails"></div>
+                    </div>
+                    <div class="product-details-info">
+                        <div id="productDetailsPrice" class="product-price"></div>
+                        <p id="productDetailsDescription" class="product-details-description"></p>
+                    </div>
+                </div>
             </div>
             <div class="modal-footer">
                 <a id="productDetailsBuy" class="btn affiliate-btn" target="_blank" rel="noopener noreferrer">
