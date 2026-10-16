@@ -30,6 +30,8 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         }, 5000);
     }
+
+    window.showNotification = showNotification;
     
     /**
      * Xác nhận hành động
@@ -134,26 +136,6 @@ document.addEventListener('DOMContentLoaded', function() {
                 showNotification('Lỗi kết nối!', 'danger');
             }
         });
-    };
-    
-    /**
-     * CRUD Reviews (tương tự products)
-     */
-    window.editReview = async function(id) {
-        try {
-            const response = await fetch(`${API_BASE}get_review.php?id=${id}`);
-            const review = await response.json();
-            
-            document.getElementById('review_id').value = review.id;
-            document.getElementById('review_title').value = review.title;
-            document.getElementById('review_content').value = review.content;
-            document.getElementById('review_rating').value = review.rating;
-            document.getElementById('review_product_id').value = review.product_id;
-            
-            showNotification('Đã load thông tin review!', 'info');
-        } catch (error) {
-            showNotification('Lỗi khi load review!', 'danger');
-        }
     };
     
     // ========== FRONTEND FUNCTIONS ==========
@@ -430,8 +412,3 @@ if ('serviceWorker' in navigator) {
             });
     });
 }
-
-// Export functions for global use
-window.showNotification = showNotification;
-window.formatCurrency = formatCurrency;
-window.searchProducts = searchProducts;

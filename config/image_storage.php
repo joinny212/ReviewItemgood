@@ -14,6 +14,25 @@ function productImageUrl(?string $image, string $localPrefix = ''): string
     return $localPrefix . rawurlencode($filename);
 }
 
+function reviewImageUrl(?string $reviewImage, ?string $productImage, string $localPrefix, string $localDirectory): string
+{
+    foreach ([$reviewImage, $productImage] as $image) {
+        if (!$image) {
+            continue;
+        }
+        if (preg_match('#^https?://#i', $image)) {
+            return $image;
+        }
+
+        $filename = basename(str_replace('\\', '/', $image));
+        if (is_file(rtrim($localDirectory, '/\\') . DIRECTORY_SEPARATOR . $filename)) {
+            return $localPrefix . rawurlencode($filename);
+        }
+    }
+
+    return '';
+}
+
 function normalizeProductImages(array $images): array
 {
     $normalized = [];

@@ -228,9 +228,16 @@ $latest_reviews = $stmt->fetchAll();
                         </div>
                         <div class="card-body p-4">
                             <p class="text-muted mb-3"><?php echo substr($review['content'], 0, 200); ?>...</p>
-                            <?php $reviewCardImage = $review['image'] ?: ($review['product_image'] ?? ''); ?>
-                            <?php if($reviewCardImage): ?>
-                                <img src="<?php echo htmlspecialchars(productImageUrl($reviewCardImage, 'uploads/'), ENT_QUOTES, 'UTF-8'); ?>"
+                            <?php
+                                $reviewCardImage = reviewImageUrl(
+                                    $review['image'] ?? null,
+                                    $review['product_image'] ?? null,
+                                    'uploads/',
+                                    __DIR__ . '/uploads/'
+                                );
+                            ?>
+                            <?php if($reviewCardImage !== ''): ?>
+                                <img src="<?php echo htmlspecialchars($reviewCardImage, ENT_QUOTES, 'UTF-8'); ?>"
                                      class="img-fluid rounded mb-3" 
                                      style="max-height: 150px; object-fit: cover;"
                                      alt="<?php echo $review['product_name']; ?>">
@@ -247,9 +254,11 @@ $latest_reviews = $stmt->fetchAll();
                                         'rating' => (int) $review['rating'],
                                         'created_at' => date('d/m/Y', strtotime($review['created_at'])),
                                         'product_name' => $review['product_name'] ?? '',
-                                        'image' => productImageUrl(
-                                            $review['image'] ?: ($review['product_image'] ?? ''),
-                                            'uploads/'
+                                        'image' => reviewImageUrl(
+                                            $review['image'] ?? null,
+                                            $review['product_image'] ?? null,
+                                            'uploads/',
+                                            __DIR__ . '/uploads/'
                                         ),
                                     ], JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_TAG | JSON_HEX_AMP | JSON_INVALID_UTF8_SUBSTITUTE), ENT_QUOTES, 'UTF-8'); ?>"
                                 >Đọc thêm →</button>

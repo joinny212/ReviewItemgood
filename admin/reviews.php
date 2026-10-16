@@ -53,6 +53,27 @@ function insertReview(PDO $pdo, bool $idAutoIncrement, string $title, string $co
 $products_stmt = $pdo->query("SELECT id, name FROM products ORDER BY name");
 $products = $products_stmt->fetchAll();
 
+$form_error = null;
+$editing_review = null;
+if (isset($_GET['edit'])) {
+    $edit_id = filter_input(INPUT_GET, 'edit', FILTER_VALIDATE_INT);
+    if (!$edit_id) {
+        $form_error = 'Mã bài review cần sửa không hợp lệ.';
+    } else {
+        $edit_stmt = $pdo->prepare("
+            SELECT r.*, p.image AS product_image
+            FROM reviews r
+            LEFT JOIN products p ON p.id = r.product_id
+            WHERE r.id = ?
+        ");
+        $edit_stmt->execute([$edit_id]);
+        $editing_review = $edit_stmt->fetch(PDO::FETCH_ASSOC) ?: null;
+        if (!$editing_review) {
+            $form_error = 'Không tìm thấy bài review cần sửa.';
+        }
+    }
+}
+
 function uploadReviewImage(array $file): string
 {
     if (($file['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK) {
@@ -74,7 +95,6 @@ function uploadReviewImage(array $file): string
 }
 
 // Xử lý thêm/sửa/xóa review
-$form_error = null;
 if ($_POST) {
     $posted_review_id = filter_var($_POST['id'] ?? '', FILTER_VALIDATE_INT);
     $review_action = $posted_review_id
@@ -157,7 +177,7 @@ if (isset($_GET['delete'])) {
 
 // Lấy danh sách reviews với thông tin product
 $stmt = $pdo->query("
-    SELECT r.*, p.name as product_name 
+    SELECT r.*, p.name as product_name, p.image as product_image
     FROM reviews r 
     LEFT JOIN products p ON r.product_id = p.id 
     ORDER BY r.created_at DESC
@@ -222,8 +242,8 @@ $reviews = $stmt->fetchAll();
                     <div class="alert alert-danger" role="alert"><?php echo htmlspecialchars($form_error, ENT_QUOTES, 'UTF-8'); ?></div>
                 <?php endif; ?>
                 <form method="POST" enctype="multipart/form-data" id="reviewForm">
-                    <input type="hidden" name="id" id="review_id">
-                    <input type="hidden" name="review_action" id="review_action" value="add">
+                    <input type="hidden" name="id" id="review_id" value="<?php echo htmlspecialchars((string) ($editing_review['id'] ?? ''), ENT_QUOTES, 'UTF-8'); ?>">
+                    <input type="hidden" name="review_action" id="review_action" value="<?php echo $editing_review ? 'edit' : 'add'; ?>">
                     
                     <div class="row">
                         <!-- Cột trái -->
@@ -231,25 +251,26 @@ $reviews = $stmt->fetchAll();
                             <div class="row">
                                 <div class="col-md-12 mb-3">
                                     <label class="form-label fw-bold">Tiêu đề <span class="text-danger">*</span></label>
-                                    <input type="text" class="form-control" name="title" id="review_title" required 
+                                    <input type="text" class="form-control" name="title" id="review_title" required
+                                           value="<?php echo htmlspecialchars($editing_review['title'] ?? '', ENT_QUOTES, 'UTF-8'); ?>"
                                            placeholder="VD: Review tai nghe Sony WH-1000XM5">
                                 </div>
                                 
                                 <div class="col-md-12 mb-3">
                                     <label class="form-label fw-bold">Nội dung <span class="text-danger">*</span></label>
-                                    <textarea class="form-control" name="content" id="review_content" required 
-                                              placeholder="Viết chi tiết đánh giá sản phẩm..."></textarea>
+                                    <textarea class="form-control" name="content" id="review_content" required
+                                              placeholder="Viết chi tiết đánh giá sản phẩm..."><?php echo htmlspecialchars($editing_review['content'] ?? '', ENT_QUOTES, 'UTF-8'); ?></textarea>
                                 </div>
                                 
                                 <div class="col-md-6 mb-3">
                                     <label class="form-label fw-bold">Điểm đánh giá <span class="text-danger">*</span></label>
                                     <select class="form-select" name="rating" id="review_rating" required>
                                         <option value="">Chọn điểm</option>
-                                        <option value="1">★☆☆☆☆ (1/5)</option>
-                                        <option value="2">★★☆☆☆ (2/5)</option>
-                                        <option value="3">★★★☆☆ (3/5)</option>
-                                        <option value="4">★★★★☆ (4/5)</option>
-                                        <option value="5">★★★★★ (5/5)</option>
+                                        <option value="1" <?php echo (int) ($editing_review['rating'] ?? 0) === 1 ? 'selected' : ''; ?>>★☆☆☆☆ (1/5)</option>
+                                        <option value="2" <?php echo (int) ($editing_review['rating'] ?? 0) === 2 ? 'selected' : ''; ?>>★★☆☆☆ (2/5)</option>
+                                        <option value="3" <?php echo (int) ($editing_review['rating'] ?? 0) === 3 ? 'selected' : ''; ?>>★★★☆☆ (3/5)</option>
+                                        <option value="4" <?php echo (int) ($editing_review['rating'] ?? 0) === 4 ? 'selected' : ''; ?>>★★★★☆ (4/5)</option>
+                                        <option value="5" <?php echo (int) ($editing_review['rating'] ?? 0) === 5 ? 'selected' : ''; ?>>★★★★★ (5/5)</option>
                                     </select>
                                 </div>
                                 
@@ -258,7 +279,7 @@ $reviews = $stmt->fetchAll();
                                     <select class="form-select" name="product_id" id="review_product_id">
                                         <option value="">-- Không chọn --</option>
                                         <?php foreach($products as $product): ?>
-                                            <option value="<?php echo $product['id']; ?>">
+                                            <option value="<?php echo $product['id']; ?>" <?php echo (string) ($editing_review['product_id'] ?? '') === (string) $product['id'] ? 'selected' : ''; ?>>
                                                 <?php echo htmlspecialchars($product['name']); ?>
                                             </option>
                                         <?php endforeach; ?>
@@ -281,7 +302,20 @@ $reviews = $stmt->fetchAll();
                                     </div>
                                     <input type="file" class="form-control" name="image" id="review_image" 
                                            accept="image/*" style="display: none;">
-                                    <div class="current-image mt-3" id="currentImage"></div>
+                                    <div class="current-image mt-3" id="currentImage">
+                                        <?php
+                                            $editingImageUrl = reviewImageUrl(
+                                                $editing_review['image'] ?? null,
+                                                $editing_review['product_image'] ?? null,
+                                                '../uploads/',
+                                                __DIR__ . '/../uploads/'
+                                            );
+                                        ?>
+                                        <?php if ($editingImageUrl !== ''): ?>
+                                            <small class="text-success d-block mb-1">Ảnh hiện tại</small>
+                                            <img src="<?php echo htmlspecialchars($editingImageUrl, ENT_QUOTES, 'UTF-8'); ?>" class="preview-img" alt="Ảnh review hiện tại">
+                                        <?php endif; ?>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -293,10 +327,10 @@ $reviews = $stmt->fetchAll();
                         <button type="button" class="btn btn-outline-secondary" onclick="resetReviewForm()">
                             <i class="fas fa-undo me-2"></i>Reset
                         </button>
-                        <button type="submit" id="updateReviewButton" class="btn btn-warning" hidden>
+                        <button type="submit" id="updateReviewButton" class="btn btn-warning" <?php echo $editing_review ? '' : 'hidden'; ?>>
                             <i class="fas fa-save me-2"></i>Cập nhật
                         </button>
-                        <button type="submit" id="addReviewButton" class="btn btn-primary">
+                        <button type="submit" id="addReviewButton" class="btn btn-primary" <?php echo $editing_review ? 'hidden' : ''; ?>>
                             <i class="fas fa-save me-2"></i>Lưu bài viết
                         </button>
                     </div>
@@ -334,8 +368,16 @@ $reviews = $stmt->fetchAll();
                             <?php foreach($reviews as $review): ?>
                             <tr data-title="<?php echo strtolower($review['title']); ?>">
                                 <td>
-                                    <?php if($review['image']): ?>
-                                        <img src="<?php echo htmlspecialchars(productImageUrl($review['image'], '../uploads/'), ENT_QUOTES, 'UTF-8'); ?>"
+                                    <?php
+                                        $reviewListImage = reviewImageUrl(
+                                            $review['image'] ?? null,
+                                            $review['product_image'] ?? null,
+                                            '../uploads/',
+                                            __DIR__ . '/../uploads/'
+                                        );
+                                    ?>
+                                    <?php if($reviewListImage !== ''): ?>
+                                        <img src="<?php echo htmlspecialchars($reviewListImage, ENT_QUOTES, 'UTF-8'); ?>"
                                              class="preview-img" 
                                              alt="Review image"
                                              onerror="this.src='https://via.placeholder.com/80x80?text=No+Img'">
@@ -373,20 +415,11 @@ $reviews = $stmt->fetchAll();
                                 </td>
                                 <td>
                                     <div class="btn-group btn-group-sm" role="group">
-                                        <button class="btn btn-outline-info" 
-                                                type="button"
-                                                onclick="editReview(this)"
-                                                data-review="<?php echo htmlspecialchars(json_encode([
-                                                    'id' => (int) $review['id'],
-                                                    'title' => $review['title'],
-                                                    'content' => $review['content'],
-                                                    'rating' => (int) $review['rating'],
-                                                    'product_id' => $review['product_id'],
-                                                    'image' => productImageUrl($review['image'], '../uploads/'),
-                                                ], JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_TAG | JSON_HEX_AMP | JSON_INVALID_UTF8_SUBSTITUTE), ENT_QUOTES, 'UTF-8'); ?>"
-                                                title="Sửa">
+                                        <a class="btn btn-outline-info"
+                                           href="?edit=<?php echo (int) $review['id']; ?>#reviewForm"
+                                           title="Sửa">
                                             <i class="fas fa-edit"></i>
-                                        </button>
+                                        </a>
                                         <a href="?delete=<?php echo $review['id']; ?>" 
                                            class="btn btn-outline-danger" 
                                            onclick="return confirm('Xóa review này?')"
@@ -437,7 +470,7 @@ $reviews = $stmt->fetchAll();
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
-    <script src="../../assets/js/script.js"></script>
+    <script src="../../assets/js/script.js?v=2"></script>
     <script>
         // Image upload preview
         document.getElementById('review_image').addEventListener('change', function(e) {
@@ -513,43 +546,6 @@ $reviews = $stmt->fetchAll();
                     row.style.display = 'none';
                 }
             });
-        };
-
-        // Edit review
-        window.editReview = function(button) {
-            try {
-                const review = JSON.parse(button.dataset.review || '{}');
-                if (!review.id) {
-                    throw new Error('Không tìm thấy thông tin bài review cần sửa.');
-                }
-                
-                document.getElementById('review_id').value = review.id;
-                document.getElementById('review_action').value = 'edit';
-                document.getElementById('review_title').value = review.title;
-                document.getElementById('review_content').value = review.content;
-                document.getElementById('review_rating').value = review.rating;
-                document.getElementById('review_product_id').value = review.product_id || '';
-                document.getElementById('updateReviewButton').hidden = false;
-                document.getElementById('addReviewButton').hidden = true;
-                
-                const currentImage = document.getElementById('currentImage');
-                currentImage.replaceChildren();
-                if (review.image) {
-                    const imageLabel = document.createElement('small');
-                    imageLabel.className = 'text-success d-block mb-1';
-                    imageLabel.textContent = 'Ảnh hiện tại';
-                    const image = document.createElement('img');
-                    image.src = review.image;
-                    image.className = 'preview-img';
-                    currentImage.append(imageLabel, image);
-                }
-                
-                document.querySelector('#reviewForm').scrollIntoView({ behavior: 'smooth' });
-                showNotification('Đã load thông tin review!', 'info');
-                
-            } catch (error) {
-                showNotification(error.message || 'Không thể tải bài review để sửa.', 'danger');
-            }
         };
 
         document.getElementById('reviewForm').addEventListener('submit', () => {
