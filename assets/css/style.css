@@ -302,6 +302,61 @@ body {
     box-shadow: 0 24px 70px rgba(15, 23, 42, 0.28);
 }
 
+.review-details-dialog {
+    position: fixed;
+    inset: 0;
+    width: min(800px, calc(100% - 2rem));
+    max-width: none;
+    max-height: calc(100% - 2rem);
+    margin: auto;
+    padding: 0;
+    overflow: hidden;
+    border: 0;
+    border-radius: 14px;
+    background: transparent;
+}
+
+.review-details-dialog::backdrop {
+    background: rgba(15, 23, 42, 0.62);
+    backdrop-filter: blur(3px);
+}
+
+.review-details-dialog .modal-content {
+    max-height: calc(100vh - 2rem);
+    overflow-y: auto;
+    border: 0;
+    border-radius: 14px;
+    box-shadow: 0 24px 70px rgba(15, 23, 42, 0.28);
+}
+
+.review-details-dialog .modal-header {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    background: #fff;
+}
+
+.review-details-rating {
+    display: flex;
+    align-items: center;
+    color: #feca57;
+    font-size: 1.2rem;
+}
+
+.review-details-image {
+    display: block;
+    width: 100%;
+    max-height: min(50vh, 420px);
+    object-fit: contain;
+    border-radius: 12px;
+    background: #f8fafc;
+}
+
+.review-details-content {
+    white-space: pre-line;
+    overflow-wrap: anywhere;
+}
+
 .product-details-dialog .modal-header {
     position: sticky;
     top: 0;
@@ -439,7 +494,16 @@ body {
         max-height: calc(100% - 1rem);
     }
 
+    .review-details-dialog {
+        width: calc(100% - 1rem);
+        max-height: calc(100% - 1rem);
+    }
+
     .product-details-dialog .modal-content {
+        max-height: calc(100vh - 1rem);
+    }
+
+    .review-details-dialog .modal-content {
         max-height: calc(100vh - 1rem);
     }
 

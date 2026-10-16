@@ -58,7 +58,7 @@ $latest_reviews = $stmt->fetchAll();
     <title>Review & Affiliate - Đánh giá sản phẩm tốt nhất</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="assets/css/style.css?v=10">
+    <link rel="stylesheet" href="assets/css/style.css?v=11">
 </head>
 <body>
     <!-- Header Navbar -->
@@ -236,7 +236,22 @@ $latest_reviews = $stmt->fetchAll();
                             <?php endif; ?>
                             <div class="d-flex justify-content-between align-items-center">
                                 <small class="text-muted"><?php echo date('d/m/Y', strtotime($review['created_at'])); ?></small>
-                                <a href="#readmore" class="text-primary fw-semibold">Đọc thêm →</a>
+                                <button
+                                    type="button"
+                                    class="btn btn-link text-primary fw-semibold p-0"
+                                    onclick="openReviewDetails(this)"
+                                    data-review="<?php echo htmlspecialchars(json_encode([
+                                        'title' => $review['title'],
+                                        'content' => $review['content'],
+                                        'rating' => (int) $review['rating'],
+                                        'created_at' => date('d/m/Y', strtotime($review['created_at'])),
+                                        'product_name' => $review['product_name'] ?? '',
+                                        'image' => productImageUrl(
+                                            $review['image'] ?: ($review['product_image'] ?? ''),
+                                            'uploads/'
+                                        ),
+                                    ], JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_TAG | JSON_HEX_AMP | JSON_INVALID_UTF8_SUBSTITUTE), ENT_QUOTES, 'UTF-8'); ?>"
+                                >Đọc thêm →</button>
                             </div>
                         </div>
                     </div>
@@ -245,6 +260,22 @@ $latest_reviews = $stmt->fetchAll();
             </div>
         </div>
     </section>
+
+    <dialog class="review-details-dialog" id="reviewDetailsModal" aria-labelledby="reviewDetailsTitle">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 class="modal-title fs-5" id="reviewDetailsTitle"></h2>
+                <button type="button" class="btn-close" data-close-review-details aria-label="Đóng"></button>
+            </div>
+            <div class="modal-body">
+                <div id="reviewDetailsRating" class="review-details-rating mb-2"></div>
+                <small id="reviewDetailsDate" class="text-muted d-block mb-3"></small>
+                <img id="reviewDetailsImage" class="review-details-image mb-3" alt="" hidden>
+                <p id="reviewDetailsProduct" class="text-muted mb-2" hidden></p>
+                <div id="reviewDetailsContent" class="review-details-content"></div>
+            </div>
+        </div>
+    </dialog>
 
     <!-- Footer -->
     <footer class="footer">
@@ -342,6 +373,53 @@ $latest_reviews = $stmt->fetchAll();
         productDetailsModal.addEventListener('click', event => {
             if (event.target === productDetailsModal) {
                 productDetailsModal.close();
+            }
+        });
+
+        const reviewDetailsModal = document.getElementById('reviewDetailsModal');
+        window.openReviewDetails = function(button) {
+            try {
+                const review = JSON.parse(button.dataset.review || '{}');
+                if (!review.title || !review.content) {
+                    throw new Error('Không tìm thấy nội dung bài review.');
+                }
+
+                document.getElementById('reviewDetailsTitle').textContent = review.title;
+                document.getElementById('reviewDetailsDate').textContent = review.created_at || '';
+                document.getElementById('reviewDetailsContent').textContent = review.content;
+
+                const rating = document.getElementById('reviewDetailsRating');
+                rating.replaceChildren();
+                for (let index = 1; index <= 5; index++) {
+                    const star = document.createElement('i');
+                    star.className = `fas fa-star${index <= review.rating ? ' filled' : ''}`;
+                    rating.appendChild(star);
+                }
+                const ratingValue = document.createElement('span');
+                ratingValue.className = 'rating-number ms-2';
+                ratingValue.textContent = `${review.rating}/5`;
+                rating.appendChild(ratingValue);
+
+                const image = document.getElementById('reviewDetailsImage');
+                image.hidden = !review.image;
+                image.src = review.image || '';
+                image.alt = review.title;
+
+                const product = document.getElementById('reviewDetailsProduct');
+                product.hidden = !review.product_name;
+                product.textContent = review.product_name ? `Sản phẩm: ${review.product_name}` : '';
+
+                reviewDetailsModal.showModal();
+            } catch (error) {
+                console.error('Unable to open review details:', error);
+            }
+        };
+        reviewDetailsModal.querySelectorAll('[data-close-review-details]').forEach(button => {
+            button.addEventListener('click', () => reviewDetailsModal.close());
+        });
+        reviewDetailsModal.addEventListener('click', event => {
+            if (event.target === reviewDetailsModal) {
+                reviewDetailsModal.close();
             }
         });
 
