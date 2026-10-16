@@ -238,10 +238,10 @@ $reviews = $stmt->fetchAll();
                         <button type="button" class="btn btn-outline-secondary" onclick="resetReviewForm()">
                             <i class="fas fa-undo me-2"></i>Reset
                         </button>
-                        <button type="submit" name="edit_review" class="btn btn-warning">
+                        <button type="submit" name="edit_review" class="btn btn-warning" hidden>
                             <i class="fas fa-save me-2"></i>Cập nhật
                         </button>
-                        <button type="submit" name="add_review" class="btn btn-primary">
+                        <button type="submit" name="add_review" id="addReviewButton" class="btn btn-primary">
                             <i class="fas fa-save me-2"></i>Lưu bài viết
                         </button>
                     </div>
@@ -429,8 +429,9 @@ $reviews = $stmt->fetchAll();
         window.resetReviewForm = function() {
             document.getElementById('reviewForm').reset();
             document.getElementById('review_id').value = '';
+            document.querySelector('[name="edit_review"]').hidden = true;
+            document.getElementById('addReviewButton').hidden = false;
             clearImagePreview();
-            document.querySelector('.star-rating').classList.remove('filled');
             showNotification('Đã reset form review!', 'info');
         };
 
@@ -452,8 +453,13 @@ $reviews = $stmt->fetchAll();
         // Edit review
         window.editReview = async function(id) {
             try {
-                const response = await fetch(`api/get_review.php?id=${id}`);
+                const response = await fetch(`api/get_review.php?id=${encodeURIComponent(id)}`, {
+                    headers: { Accept: 'application/json' }
+                });
                 const review = await response.json();
+                if (!response.ok || !review.id) {
+                    throw new Error(review.error || 'Không tìm thấy bài review cần sửa.');
+                }
                 
                 // Fill form
                 document.getElementById('review_id').value = review.id;
@@ -461,8 +467,11 @@ $reviews = $stmt->fetchAll();
                 document.getElementById('review_content').value = review.content;
                 document.getElementById('review_rating').value = review.rating;
                 document.getElementById('review_product_id').value = review.product_id || '';
+                document.querySelector('[name="edit_review"]').hidden = false;
+                document.getElementById('addReviewButton').hidden = true;
                 
                 // Show current image
+                document.getElementById('currentImage').innerHTML = '';
                 if (review.image) {
                     document.getElementById('currentImage').innerHTML = `
                         <small class="text-success d-block mb-1">
@@ -477,7 +486,7 @@ $reviews = $stmt->fetchAll();
                 showNotification('Đã load thông tin review!', 'info');
                 
             } catch (error) {
-                showNotification('Lỗi khi load review!', 'danger');
+                showNotification(error.message || 'Không thể tải bài review để sửa.', 'danger');
             }
         };
 
