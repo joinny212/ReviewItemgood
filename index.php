@@ -57,7 +57,7 @@ $latest_reviews = $stmt->fetchAll();
     <title>Review & Affiliate - Đánh giá sản phẩm tốt nhất</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="assets/css/style.css?v=7">
+    <link rel="stylesheet" href="assets/css/style.css?v=9">
 </head>
 <body>
     <!-- Header Navbar -->
@@ -110,7 +110,20 @@ $latest_reviews = $stmt->fetchAll();
             <div class="row g-4">
                 <?php foreach($featured_products as $product): ?>
                 <div class="col-lg-4 col-md-6">
-                    <div class="product-card h-100">
+                    <div
+                        class="product-card h-100"
+                        role="button"
+                        tabindex="0"
+                        aria-label="Xem chi tiết sản phẩm: <?php echo htmlspecialchars($product['name'], ENT_QUOTES, 'UTF-8'); ?>"
+                        data-product-name="<?php echo htmlspecialchars($product['name'], ENT_QUOTES, 'UTF-8'); ?>"
+                        data-product-description="<?php echo htmlspecialchars($product['description'] ?? '', ENT_QUOTES, 'UTF-8'); ?>"
+                        data-product-price="<?php echo htmlspecialchars(number_format($product['price'], 0, ',', '.') . 'đ', ENT_QUOTES, 'UTF-8'); ?>"
+                        data-product-link="<?php echo htmlspecialchars($product['affiliate_link'] ?? '', ENT_QUOTES, 'UTF-8'); ?>"
+                        data-product-images="<?php echo htmlspecialchars(json_encode(array_map(
+                            static fn(string $image): string => productImageUrl($image, 'uploads/'),
+                            $product['images']
+                        ), JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_TAG | JSON_HEX_AMP), ENT_QUOTES, 'UTF-8'); ?>"
+                    >
                         <div class="product-image">
                             <?php if(!empty($product['images'])): ?>
                                 <?php
@@ -162,6 +175,27 @@ $latest_reviews = $stmt->fetchAll();
         </div>
     </section>
 
+    <dialog class="product-details-dialog" id="productDetailsModal" aria-labelledby="productDetailsTitle">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 class="modal-title fs-5" id="productDetailsTitle"></h2>
+                <button type="button" class="btn-close" data-close-product-details aria-label="Đóng"></button>
+            </div>
+            <div class="modal-body">
+                <div id="productDetailsGallery" class="product-details-gallery mb-3"></div>
+                <div id="productDetailsThumbnails" class="product-details-thumbnails mb-3"></div>
+                <div id="productDetailsPrice" class="product-price"></div>
+                <p id="productDetailsDescription" class="product-details-description"></p>
+            </div>
+            <div class="modal-footer">
+                <a id="productDetailsBuy" class="btn affiliate-btn" target="_blank" rel="noopener noreferrer">
+                    <i class="fas fa-shopping-cart me-2"></i>Mua ngay
+                </a>
+                <button type="button" class="btn btn-secondary" data-close-product-details>Đóng</button>
+            </div>
+        </div>
+    </dialog>
+
     <!-- Latest Reviews -->
     <section class="reviews-grid" id="reviews">
         <div class="container">
@@ -212,8 +246,98 @@ $latest_reviews = $stmt->fetchAll();
         </div>
     </footer>
 
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
     <script>
+        const productDetailsModal = document.getElementById('productDetailsModal');
+
+        function openProductDetails(card) {
+            document.getElementById('productDetailsTitle').textContent = card.dataset.productName || '';
+            document.getElementById('productDetailsPrice').textContent = card.dataset.productPrice || '';
+            document.getElementById('productDetailsDescription').textContent =
+                card.dataset.productDescription || 'Chưa có mô tả cho sản phẩm này.';
+
+            const buyButton = document.getElementById('productDetailsBuy');
+            const productLink = card.dataset.productLink || '';
+            buyButton.href = productLink;
+            buyButton.hidden = !productLink;
+
+            let images = [];
+            try {
+                images = JSON.parse(card.dataset.productImages || '[]');
+            } catch (error) {
+                images = [];
+            }
+
+            const gallery = document.getElementById('productDetailsGallery');
+            const thumbnails = document.getElementById('productDetailsThumbnails');
+            gallery.replaceChildren();
+            thumbnails.replaceChildren();
+
+            if (!images.length) {
+                const noImage = document.createElement('div');
+                noImage.className = 'product-image-placeholder';
+                noImage.textContent = 'Sản phẩm chưa có ảnh.';
+                gallery.appendChild(noImage);
+            } else {
+                const mainImage = document.createElement('img');
+                mainImage.src = images[0];
+                mainImage.alt = card.dataset.productName || '';
+                mainImage.className = 'product-details-main-image';
+                mainImage.onerror = () => {
+                    mainImage.hidden = true;
+                    const imageError = document.createElement('div');
+                    imageError.className = 'product-image-placeholder';
+                    imageError.textContent = 'Ảnh không tải được.';
+                    gallery.replaceChildren(imageError);
+                };
+                gallery.appendChild(mainImage);
+
+                if (images.length > 1) {
+                    images.forEach((imageUrl, index) => {
+                        const thumbnail = document.createElement('button');
+                        thumbnail.type = 'button';
+                        thumbnail.className = 'product-details-thumbnail';
+                        thumbnail.setAttribute('aria-label', `Xem ảnh ${index + 1}`);
+                        const thumbnailImage = document.createElement('img');
+                        thumbnailImage.src = imageUrl;
+                        thumbnailImage.alt = '';
+                        thumbnail.appendChild(thumbnailImage);
+                        thumbnail.addEventListener('click', () => {
+                            mainImage.hidden = false;
+                            mainImage.src = imageUrl;
+                        });
+                        thumbnails.appendChild(thumbnail);
+                    });
+                }
+            }
+
+            productDetailsModal.showModal();
+        }
+
+        document.querySelectorAll('.product-card[role="button"]').forEach(card => {
+            card.addEventListener('click', event => {
+                if (event.target.closest('a, button')) {
+                    return;
+                }
+                openProductDetails(card);
+            });
+            card.addEventListener('keydown', event => {
+                if ((event.key === 'Enter' || event.key === ' ') && event.target === card) {
+                    event.preventDefault();
+                    openProductDetails(card);
+                }
+            });
+        });
+
+        productDetailsModal.querySelectorAll('[data-close-product-details]').forEach(button => {
+            button.addEventListener('click', () => productDetailsModal.close());
+        });
+        productDetailsModal.addEventListener('click', event => {
+            if (event.target === productDetailsModal) {
+                productDetailsModal.close();
+            }
+        });
+
         function tryNextProductImage(image) {
             let imageUrls = [];
             try {

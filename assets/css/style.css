@@ -110,6 +110,12 @@ body {
 .product-card {
     display: flex;
     flex-direction: column;
+    cursor: pointer;
+}
+
+.product-card:focus-visible {
+    outline: 3px solid #667eea;
+    outline-offset: 3px;
 }
 
 .product-card:hover, .review-card:hover {
@@ -256,6 +262,75 @@ body {
     transform: translateY(-2px);
     box-shadow: 0 10px 25px rgba(102,126,234,0.4);
     color: white;
+}
+
+.product-details-gallery {
+    height: min(55vh, 420px);
+    min-height: 220px;
+    display: grid;
+    place-items: center;
+    overflow: hidden;
+    border-radius: 12px;
+    background: #eef2f7;
+}
+
+.product-details-dialog {
+    width: min(800px, calc(100% - 2rem));
+    max-width: none;
+    max-height: calc(100% - 2rem);
+    padding: 0;
+    overflow: visible;
+    border: 0;
+    background: transparent;
+}
+
+.product-details-dialog::backdrop {
+    background: rgba(0, 0, 0, 0.5);
+}
+
+.product-details-dialog .modal-content {
+    max-height: calc(100vh - 2rem);
+    overflow-y: auto;
+}
+
+.product-details-main-image {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+}
+
+.product-details-thumbnails {
+    display: flex;
+    gap: 8px;
+    overflow-x: auto;
+}
+
+.product-details-thumbnail {
+    flex: 0 0 64px;
+    width: 64px;
+    height: 64px;
+    padding: 0;
+    border: 1px solid #dee2e6;
+    border-radius: 8px;
+    overflow: hidden;
+    background: white;
+    cursor: pointer;
+}
+
+.product-details-thumbnail img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.product-details-description {
+    white-space: pre-line;
+    overflow-wrap: anywhere;
+}
+
+.modal-footer .affiliate-btn {
+    width: auto;
+    margin-top: 0;
 }
 
 .stars {
