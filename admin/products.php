@@ -9,8 +9,11 @@ require_once '../config/image_storage.php';
 
 $image_gallery_available = true;
 $image_gallery_error = null;
+$product_image_has_filename = false;
 try {
     $pdo->query("SELECT image, sort_order FROM product_images LIMIT 0");
+    $columns = $pdo->query("SHOW COLUMNS FROM product_images")->fetchAll(PDO::FETCH_COLUMN);
+    $product_image_has_filename = in_array('filename', $columns, true);
 } catch (PDOException $exception) {
     if (!in_array($exception->getCode(), ['42S02', '42S22'], true)) {
         throw $exception;
@@ -20,16 +23,28 @@ try {
     error_log('Product image gallery schema is missing: ' . $exception->getMessage());
 }
 
-function insertProductImage(PDO $pdo, int $productId, string $image, int $sortOrder): void
+function insertProductImage(PDO $pdo, int $productId, string $image, int $sortOrder, bool $hasFilename): void
 {
-    $stmt = $pdo->prepare(
-        "INSERT INTO product_images (id, product_id, image, sort_order) VALUES (?, ?, ?, ?)"
-    );
+    if ($hasFilename) {
+        $imagePath = parse_url($image, PHP_URL_PATH);
+        $filename = basename(is_string($imagePath) ? $imagePath : $image);
+        $stmt = $pdo->prepare(
+            "INSERT INTO product_images (id, product_id, image, sort_order, filename) VALUES (?, ?, ?, ?, ?)"
+        );
+    } else {
+        $stmt = $pdo->prepare(
+            "INSERT INTO product_images (id, product_id, image, sort_order) VALUES (?, ?, ?, ?)"
+        );
+    }
 
     for ($attempt = 0; $attempt < 5; $attempt++) {
         $id = random_int(1, 2147483647);
         try {
-            $stmt->execute([$id, $productId, $image, $sortOrder]);
+            $values = [$id, $productId, $image, $sortOrder];
+            if ($hasFilename) {
+                $values[] = $filename;
+            }
+            $stmt->execute($values);
             return;
         } catch (PDOException $exception) {
             if (($exception->errorInfo[1] ?? null) !== 1062) {
@@ -149,7 +164,7 @@ if ($_POST) {
 
             if ($images) {
                 foreach ($images as $sort_order => $image) {
-                    insertProductImage($pdo, (int) $product_id, $image, $sort_order);
+                    insertProductImage($pdo, (int) $product_id, $image, $sort_order, $product_image_has_filename);
                 }
             }
 
@@ -200,7 +215,7 @@ if ($_POST) {
                 $delete_stmt = $pdo->prepare("DELETE FROM product_images WHERE product_id = ?");
                 $delete_stmt->execute([$id]);
                 foreach ($all_images as $sort_order => $image) {
-                    insertProductImage($pdo, $id, $image, $sort_order);
+                    insertProductImage($pdo, $id, $image, $sort_order, $product_image_has_filename);
                 }
                 $update_primary = $pdo->prepare("UPDATE products SET image = ? WHERE id = ?");
                 $update_primary->execute([$all_images[0], $id]);
